@@ -5,24 +5,19 @@ from flask_cors import CORS
 from openai import OpenAI
 from datetime import datetime
 
-# ------------------------------------------------------------
-# ✅ APP SETUP
-# ------------------------------------------------------------
 app = Flask(__name__)
 CORS(app)
+
+# ---------- OpenAI ----------
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ------------------------------------------------------------
-# ✅ DATABASE CONNECTION
-# ------------------------------------------------------------
+# ---------- Database ----------
 DB_URL = "postgresql://postgres:eoTlRaNGAiMEqwzsYPkzKJYWudCSRSOq@postgres.railway.internal:5432/railway"
 
 def get_db():
+    # Railway PG usually has SSL; if your instance errors on sslmode, remove it.
     return psycopg2.connect(DB_URL, sslmode="require")
 
-# ------------------------------------------------------------
-# ✅ INIT DATABASE
-# ------------------------------------------------------------
 def init_db():
     conn = get_db()
     cur = conn.cursor()
@@ -45,222 +40,227 @@ def init_db():
 
 init_db()
 
-# ------------------------------------------------------------
-# ✅ LESSON PLAN GENERATOR
-# ------------------------------------------------------------
+# ---------- Lesson Plan ----------
 @app.route("/generate_lesson", methods=["POST"])
 def generate_lesson():
     try:
-        teacher = request.form.get("teacher", "")
-        title = request.form.get("lesson_title", "")
-        duration = request.form.get("duration", "")
-        cefr = request.form.get("cefr", "")
-        profile = request.form.get("profile", "")
-        file = request.files.get("file")
+        teacher   = request.form.get("teacher", "")
+        title     = request.form.get("lesson_title", "")
+        duration  = request.form.get("duration", "")
+        cefr      = request.form.get("cefr", "")
+        profile   = request.form.get("profile", "")
+        upfile    = request.files.get("file")
 
         content = ""
-        if file:
-            content = file.read().decode("utf-8", errors="ignore")
+        if upfile:
+            # accept .txt or .pdf-as-text uploads (Railway minimal)
+            content = upfile.read().decode("utf-8", errors="ignore")
 
         prompt = f"""
-        You are an expert instructional designer at BAE Systems KSA.
-        Create a complete structured lesson plan including measurable objectives and domain checklists.
+You are an instructional designer at BAE Systems KSA.
+Create a professional lesson plan based on the uploaded content.
 
-        Lesson Title: {title}
-        Teacher: {teacher}
-        Duration: {duration}
-        CEFR Level: {cefr}
-        Learner Profile: {profile}
+Include sections:
+1) Overview (Title, Teacher, Duration, CEFR, Learner Profile)
+2) Measurable Objectives (U/A/C/B)
+3) Materials & Resources
+4) Lesson Stages (Timing | Objective | Teacher Role | Learner Role | Interaction | Procedure)
+5) Domain Checklist (Understanding, Application, Communication, Behavior — 5 criteria each)
+6) Interpretation Key
 
-        Lesson content:
-        {content}
+Lesson Title: {title}
+Teacher: {teacher} | Duration: {duration} | CEFR: {cefr}
+Learner Profile: {profile}
 
-        Output format:
-        1. Lesson Overview
-        2. Lesson Objectives
-        3. Materials / Realia
-        4. Lesson Stages (Timing, Procedure, Interaction)
-        5. Domain Checklist (Understanding / Application / Communication / Behavior)
-        """
+Source content:
+{content}
+"""
 
-        response = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": "You are a lesson planner generating domain-aligned lesson plans."},
-                {"role": "user", "content": prompt}
-            ],
             temperature=0.4,
+            messages=[
+                {"role":"system","content":"You create structured ELT lesson plans with crisp tables and measurable outcomes."},
+                {"role":"user","content":prompt}
+            ]
         )
 
         html = f"""
-        <html><head>
-        <style>
-        body{{font-family:Inter,sans-serif;margin:40px;color:#111827;line-height:1.6;}}
-        h1{{color:#1e3a8a;font-size:24px;}}
-        h2{{color:#1e40af;margin-top:24px;}}
-        ul{{margin-left:20px;}}
-        </style></head><body>
-        <h1>{title}</h1>
-        <h3>Teacher: {teacher} | CEFR: {cefr} | Duration: {duration}</h3>
-        <hr/>
-        {response.choices[0].message.content.replace("\n", "<br>")}
-        </body></html>
-        """
-        return html
+<html><head><meta charset="utf-8">
+<style>
+body{{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:40px;color:#111827;line-height:1.6}}
+h1{{color:#1e3a8a;font-size:24px;margin:0 0 4px}}
+h2{{color:#1e40af;margin-top:24px}}
+hr{{border:none;border-top:1px solid #e5e7eb;margin:16px 0}}
+table{{border-collapse:collapse;width:100%;margin:8px 0}}
+th,td{{border:1px solid #e5e7eb;padding:8px;text-align:left;font-size:14px}}
+thead th{{background:#f9fafb}}
+</style></head><body>
+<h1>{title or "Lesson Plan"}</h1>
+<div>Teacher: {teacher or "-"} &nbsp;|&nbsp; CEFR: {cefr or "-"} &nbsp;|&nbsp; Duration: {duration or "-"}</div>
+<hr/>
+{resp.choices[0].message.content.replace("\n","<br>")}
+</body></html>
+"""
+        return html, 200, {"Content-Type":"text/html"}
 
     except Exception as e:
-        return f"<p style='color:red'>Error generating lesson: {e}</p>"
+        return f"<p style='color:red'>Error generating lesson: {e}</p>", 500
 
-# ------------------------------------------------------------
-# ✅ SAVE PERFORMANCE RECORDS
-# ------------------------------------------------------------
+# ---------- Helpers ----------
+def fnum(x):
+    try:
+        return float(x)
+    except:
+        return 0.0
+
+def compute_total(u,a,c,b):
+    return fnum(u) + fnum(a) + fnum(c) + fnum(b)
+
+# ---------- Save Performance ----------
 @app.route("/save_performance", methods=["POST"])
 def save_performance():
     try:
-        data = request.get_json(force=True)
-        conn = get_db()
-        cur = conn.cursor()
+        payload = request.get_json(force=True)
+        if not isinstance(payload, list):
+            return jsonify({"error":"Expected a JSON array of rows"}), 400
 
-        for r in data:
+        conn = get_db()
+        cur  = conn.cursor()
+
+        for r in payload:
+            u = fnum(r.get("understanding"))
+            a = fnum(r.get("application"))
+            c = fnum(r.get("communication"))
+            b = fnum(r.get("behavior"))
+            total = compute_total(u,a,c,b)  # ✅ server-side truth
+
             cur.execute("""
-            INSERT INTO performance_records 
-                (lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp)
+            INSERT INTO performance_records
+            (lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s);
             """, (
-                r.get("lesson_id") or "",
+                (r.get("lesson_id") or "").strip(),
                 (r.get("learner_id") or "").strip(),
-                float(r.get("understanding") or 0),
-                float(r.get("application") or 0),
-                float(r.get("communication") or 0),
-                float(r.get("behavior") or 0),
-                float(r.get("total") or 0),
-                datetime.now()
+                u, a, c, b, total, datetime.now()
             ))
 
         conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"message": f"✅ Saved {len(data)} records successfully."})
+        cur.close(); conn.close()
+        return jsonify({"message": f"Saved {len(payload)} records.", "status":"ok"})
     except Exception as e:
-        print("❌ Save error:", e)
+        print("❌ save_performance:", e)
         return jsonify({"error": str(e)}), 500
 
-# ------------------------------------------------------------
-# ✅ FETCH ALL RECORDS (DASHBOARD)
-# ------------------------------------------------------------
+# ---------- Dashboard Data ----------
 @app.route("/fetch_data", methods=["GET"])
 def fetch_data():
     try:
         conn = get_db()
-        cur = conn.cursor()
+        cur  = conn.cursor()
         cur.execute("""
         SELECT id, lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
-        FROM performance_records ORDER BY timestamp DESC;
+        FROM performance_records
+        ORDER BY timestamp DESC;
         """)
         rows = cur.fetchall()
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
 
         data = []
         for r in rows:
             data.append({
                 "record_id": r[0],
                 "lesson_id": r[1],
-                "learner_id": r[2],
-                "understanding": r[3],
-                "application": r[4],
-                "communication": r[5],
-                "behavior": r[6],
-                "total_score": r[7],
+                "learner_id": r[2] or "",
+                "understanding": r[3] or 0,
+                "application": r[4] or 0,
+                "communication": r[5] or 0,
+                "behavior": r[6] or 0,
+                # ✅ always 'total'
+                "total": r[7] or 0,
                 "timestamp": r[8].strftime("%Y-%m-%d %H:%M")
             })
-
         return jsonify(data)
     except Exception as e:
-        print("❌ Fetch error:", e)
+        print("❌ fetch_data:", e)
         return jsonify({"error": str(e)}), 500
 
-# ------------------------------------------------------------
-# ✅ FETCH AVERAGES (AGGREGATED VIEW)
-# ------------------------------------------------------------
+# ---------- Averages (per learner) ----------
 @app.route("/fetch_averages", methods=["GET"])
 def fetch_averages():
     try:
         conn = get_db()
-        cur = conn.cursor()
+        cur  = conn.cursor()
 
-        # ensure table exists
+        # Case-insensitive, trimmed grouping. Compute per-domain averages,
+        # then compute total as the sum of those averaged domains (so it matches UI).
         cur.execute("""
-        CREATE TABLE IF NOT EXISTS performance_records (
-            id SERIAL PRIMARY KEY,
-            lesson_id TEXT,
-            learner_id TEXT,
-            understanding FLOAT,
-            application FLOAT,
-            communication FLOAT,
-            behavior FLOAT,
-            total FLOAT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """)
-
-        # robust average query (case-insensitive learner grouping)
-        cur.execute("""
-        SELECT 
-            LOWER(TRIM(learner_id)) AS learner_id,
-            ROUND(AVG(COALESCE(understanding,0)), 2),
-            ROUND(AVG(COALESCE(application,0)), 2),
-            ROUND(AVG(COALESCE(communication,0)), 2),
-            ROUND(AVG(COALESCE(behavior,0)), 2),
-            ROUND(AVG(COALESCE(total,0)), 2),
+        WITH base AS (
+            SELECT
+                LOWER(TRIM(learner_id)) AS lid,
+                COALESCE(understanding,0) AS u,
+                COALESCE(application,0)   AS a,
+                COALESCE(communication,0) AS c,
+                COALESCE(behavior,0)      AS b
+            FROM performance_records
+            WHERE TRIM(COALESCE(learner_id,'')) <> ''
+        )
+        SELECT
+            lid AS learner_id,
+            ROUND(AVG(u), 2) AS understanding,
+            ROUND(AVG(a), 2) AS application,
+            ROUND(AVG(c), 2) AS communication,
+            ROUND(AVG(b), 2) AS behavior,
+            ROUND(AVG(u)+AVG(a)+AVG(c)+AVG(b), 2) AS total,  -- ✅ sum of averages
             COUNT(*) AS entries
-        FROM performance_records
-        WHERE learner_id IS NOT NULL AND TRIM(learner_id) <> ''
-        GROUP BY LOWER(TRIM(learner_id))
-        ORDER BY learner_id;
+        FROM base
+        GROUP BY lid
+        ORDER BY lid;
         """)
 
         rows = cur.fetchall()
-        cur.close()
-        conn.close()
+        cur.close(); conn.close()
 
-        data = []
-        for r in rows:
-            data.append({
-                "learner_id": r[0],
-                "understanding": r[1],
-                "application": r[2],
-                "communication": r[3],
-                "behavior": r[4],
-                "total": r[5],
-                "entries": r[6]
-            })
+        data = [{
+            "learner_id": r[0],
+            "understanding": r[1],
+            "application": r[2],
+            "communication": r[3],
+            "behavior": r[4],
+            "total": r[5],        # ✅ consistent key
+            "entries": r[6]
+        } for r in rows]
 
-        return jsonify(data if data else [])
-
+        return jsonify(data)
     except Exception as e:
-        print("❌ Error in /fetch_averages:", e)
+        print("❌ fetch_averages:", e)
         return jsonify({"error": str(e)}), 500
 
-# ------------------------------------------------------------
-# ✅ OPTIONAL: RESET DATABASE
-# ------------------------------------------------------------
-@app.route("/reset_database", methods=["POST"])
-def reset_database():
+# ---------- Repair Endpoint (optional) ----------
+@app.route("/recalculate_totals", methods=["POST"])
+def recalc_totals():
+    """
+    Fix any legacy rows where total was blank or wrong.
+    """
     try:
         conn = get_db()
-        cur = conn.cursor()
-        cur.execute("DROP TABLE IF EXISTS performance_records;")
+        cur  = conn.cursor()
+        cur.execute("""
+        UPDATE performance_records
+        SET total = COALESCE(understanding,0) + COALESCE(application,0)
+                  + COALESCE(communication,0) + COALESCE(behavior,0)
+        WHERE total IS NULL
+           OR total <> COALESCE(understanding,0) + COALESCE(application,0)
+                     + COALESCE(communication,0) + COALESCE(behavior,0);
+        """)
+        updated = cur.rowcount
         conn.commit()
-        cur.close()
-        conn.close()
-        init_db()
-        return jsonify({"message": "🧹 Database reset successful."})
+        cur.close(); conn.close()
+        return jsonify({"message": f"Recalculated totals for {updated} rows.", "updated": updated})
     except Exception as e:
+        print("❌ recalc_totals:", e)
         return jsonify({"error": str(e)}), 500
 
-# ------------------------------------------------------------
-# ✅ RUN APP
-# ------------------------------------------------------------
+# ---------- Run ----------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
