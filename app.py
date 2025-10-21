@@ -21,7 +21,7 @@ def get_db():
     return psycopg2.connect(DB_URL, sslmode="require")
 
 # ------------------------------------------------------------
-# ✅ DATABASE INIT
+# ✅ INIT DATABASE
 # ------------------------------------------------------------
 def init_db():
     conn = get_db()
@@ -63,8 +63,8 @@ def generate_lesson():
             content = file.read().decode("utf-8", errors="ignore")
 
         prompt = f"""
-        You are an expert instructional designer working under BAE Systems KSA.
-        Create a structured lesson plan with clear objectives and domain checklists.
+        You are an expert instructional designer at BAE Systems KSA.
+        Create a complete structured lesson plan including measurable objectives and domain checklists.
 
         Lesson Title: {title}
         Teacher: {teacher}
@@ -77,16 +77,18 @@ def generate_lesson():
 
         Output format:
         1. Lesson Overview
-        2. Objectives (clear and measurable)
-        3. Materials
-        4. Procedures (stages with timing)
+        2. Lesson Objectives
+        3. Materials / Realia
+        4. Lesson Stages (Timing, Procedure, Interaction)
         5. Domain Checklist (Understanding / Application / Communication / Behavior)
         """
 
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "system", "content": "You are a lesson planner."},
-                      {"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are a lesson planner generating domain-aligned lesson plans."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.4,
         )
 
@@ -121,11 +123,12 @@ def save_performance():
 
         for r in data:
             cur.execute("""
-            INSERT INTO performance_records (lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+            INSERT INTO performance_records 
+                (lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s);
             """, (
-                r.get("lesson_id"),
-                r.get("learner_id"),
+                r.get("lesson_id") or "",
+                (r.get("learner_id") or "").strip(),
                 float(r.get("understanding") or 0),
                 float(r.get("application") or 0),
                 float(r.get("communication") or 0),
@@ -137,13 +140,13 @@ def save_performance():
         conn.commit()
         cur.close()
         conn.close()
-        return jsonify({"message": "✅ Performance data saved successfully."})
+        return jsonify({"message": f"✅ Saved {len(data)} records successfully."})
     except Exception as e:
         print("❌ Save error:", e)
         return jsonify({"error": str(e)}), 500
 
 # ------------------------------------------------------------
-# ✅ FETCH ALL DATA
+# ✅ FETCH ALL RECORDS (DASHBOARD)
 # ------------------------------------------------------------
 @app.route("/fetch_data", methods=["GET"])
 def fetch_data():
@@ -151,7 +154,7 @@ def fetch_data():
         conn = get_db()
         cur = conn.cursor()
         cur.execute("""
-        SELECT learner_id, understanding, application, communication, behavior, total, timestamp
+        SELECT id, lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
         FROM performance_records ORDER BY timestamp DESC;
         """)
         rows = cur.fetchall()
@@ -161,21 +164,24 @@ def fetch_data():
         data = []
         for r in rows:
             data.append({
-                "learner_id": r[0],
-                "understanding": r[1],
-                "application": r[2],
-                "communication": r[3],
-                "behavior": r[4],
-                "total": r[5],
-                "timestamp": r[6].strftime("%Y-%m-%d %H:%M")
+                "record_id": r[0],
+                "lesson_id": r[1],
+                "learner_id": r[2],
+                "understanding": r[3],
+                "application": r[4],
+                "communication": r[5],
+                "behavior": r[6],
+                "total_score": r[7],
+                "timestamp": r[8].strftime("%Y-%m-%d %H:%M")
             })
+
         return jsonify(data)
     except Exception as e:
         print("❌ Fetch error:", e)
         return jsonify({"error": str(e)}), 500
 
 # ------------------------------------------------------------
-# ✅ FETCH AVERAGES
+# ✅ FETCH AVERAGES (AGGREGATED VIEW)
 # ------------------------------------------------------------
 @app.route("/fetch_averages", methods=["GET"])
 def fetch_averages():
@@ -183,6 +189,7 @@ def fetch_averages():
         conn = get_db()
         cur = conn.cursor()
 
+        # ensure table exists
         cur.execute("""
         CREATE TABLE IF NOT EXISTS performance_records (
             id SERIAL PRIMARY KEY,
@@ -197,17 +204,19 @@ def fetch_averages():
         );
         """)
 
+        # robust average query (case-insensitive learner grouping)
         cur.execute("""
         SELECT 
-            COALESCE(NULLIF(TRIM(learner_id), ''), 'Unlabeled') AS learner_id,
-            ROUND(AVG(understanding), 2),
-            ROUND(AVG(application), 2),
-            ROUND(AVG(communication), 2),
-            ROUND(AVG(behavior), 2),
-            ROUND(AVG(total), 2)
+            LOWER(TRIM(learner_id)) AS learner_id,
+            ROUND(AVG(COALESCE(understanding,0)), 2),
+            ROUND(AVG(COALESCE(application,0)), 2),
+            ROUND(AVG(COALESCE(communication,0)), 2),
+            ROUND(AVG(COALESCE(behavior,0)), 2),
+            ROUND(AVG(COALESCE(total,0)), 2),
+            COUNT(*) AS entries
         FROM performance_records
         WHERE learner_id IS NOT NULL AND TRIM(learner_id) <> ''
-        GROUP BY COALESCE(NULLIF(TRIM(learner_id), ''), 'Unlabeled')
+        GROUP BY LOWER(TRIM(learner_id))
         ORDER BY learner_id;
         """)
 
@@ -223,13 +232,31 @@ def fetch_averages():
                 "application": r[2],
                 "communication": r[3],
                 "behavior": r[4],
-                "total": r[5]
+                "total": r[5],
+                "entries": r[6]
             })
 
-        return jsonify(data)
+        return jsonify(data if data else [])
 
     except Exception as e:
         print("❌ Error in /fetch_averages:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ------------------------------------------------------------
+# ✅ OPTIONAL: RESET DATABASE
+# ------------------------------------------------------------
+@app.route("/reset_database", methods=["POST"])
+def reset_database():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("DROP TABLE IF EXISTS performance_records;")
+        conn.commit()
+        cur.close()
+        conn.close()
+        init_db()
+        return jsonify({"message": "🧹 Database reset successful."})
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 # ------------------------------------------------------------
