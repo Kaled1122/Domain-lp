@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BAE Training Suite</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     body { font-family: "Inter", sans-serif; background-color: #f9fafb; color: #111827; }
     .tab-btn { flex: 1; padding: 12px; font-weight: 600; border-bottom: 3px solid transparent; cursor: pointer; }
@@ -49,7 +51,9 @@
             Generate Lesson Plan
           </button>
         </form>
+
         <div id="lessonOutput" class="mt-4 border rounded-md p-4 bg-gray-50 text-sm"></div>
+        <button id="downloadPdfBtn" class="hidden bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">⬇️ Download PDF</button>
       </div>
     </section>
 
@@ -57,13 +61,11 @@
     <section id="register" class="tab-content hidden">
       <div class="card space-y-4">
         <h2 class="text-xl font-bold mb-2">Performance Register</h2>
-        <p class="text-gray-600 mb-4">Choose learner count and record domain scores.</p>
         <div class="flex flex-wrap items-center gap-3">
           <label class="font-semibold">Number of Learners:</label>
           <input id="numLearners" type="number" min="1" max="100" value="16"
                  class="border rounded-md p-2 w-24 text-center" />
-          <button id="buildTableBtn"
-                  class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+          <button id="buildTableBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
             Generate Table
           </button>
         </div>
@@ -78,8 +80,7 @@
             </thead>
             <tbody id="registerBody"></tbody>
           </table>
-          <button id="saveBtn"
-                  class="mt-6 bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700">
+          <button id="saveBtn" class="mt-6 bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700">
             💾 Save to Database
           </button>
         </div>
@@ -90,108 +91,166 @@
     <section id="dashboard" class="tab-content hidden">
       <div class="card">
         <h2 class="text-xl font-bold mb-4">Performance Dashboard</h2>
-        <button id="loadData" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
-          🔄 Load Records
-        </button>
+        <div class="flex gap-3">
+          <button id="loadData" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+            🔄 Load Records
+          </button>
+          <button id="downloadExcelBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+            ⬇️ Download Excel
+          </button>
+        </div>
         <div id="dataOutput" class="overflow-x-auto mt-4 text-sm"></div>
       </div>
     </section>
   </main>
 
   <script>
-    const backend = "https://domain-lp-production.up.railway.app"; // ✅ your live backend
+    const backend = "https://domain-lp-production.up.railway.app";
 
-    // === Tab navigation ===
-    const tabs = document.querySelectorAll(".tab-btn");
-    const sections = document.querySelectorAll(".tab-content");
-    tabs.forEach(t => t.addEventListener("click", () => {
-      tabs.forEach(b=>b.classList.remove("active"));
-      sections.forEach(s=>s.classList.add("hidden"));
-      t.classList.add("active");
-      document.getElementById(t.dataset.tab).classList.remove("hidden");
-    }));
+    // === Tabs ===
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+        document.querySelectorAll(".tab-content").forEach(s => s.classList.add("hidden"));
+        btn.classList.add("active");
+        document.getElementById(btn.dataset.tab).classList.remove("hidden");
+      };
+    });
 
     // === Lesson Plan Generator ===
     const form = document.getElementById("lessonForm");
-    const output = document.getElementById("lessonOutput");
     form.addEventListener("submit", async e => {
       e.preventDefault();
-      output.innerHTML = "⏳ Generating lesson plan...";
+      const out = document.getElementById("lessonOutput");
+      const pdfBtn = document.getElementById("downloadPdfBtn");
+      out.innerHTML = "⏳ Generating...";
+      pdfBtn.classList.add("hidden");
+
       const fd = new FormData(form);
-      const res = await fetch(`${backend}/generate_lesson`, { method:"POST", body:fd });
-      output.innerHTML = await res.text();
+      const res = await fetch(`${backend}/generate_lesson`, { method: "POST", body: fd });
+      const html = await res.text();
+      out.innerHTML = html;
+      pdfBtn.classList.remove("hidden");
     });
 
-    // === Register Table ===
-    const buildBtn=document.getElementById("buildTableBtn"),
-          body=document.getElementById("registerBody"),
-          tableContainer=document.getElementById("tableContainer");
+    document.getElementById("downloadPdfBtn").onclick = () => {
+      const element = document.getElementById("lessonOutput");
+      html2pdf().from(element).set({ filename: "Lesson_Plan.pdf" }).save();
+    };
 
-    buildBtn.onclick=()=>{
-      const n=parseInt(document.getElementById("numLearners").value);
-      if(!n||n<1)return alert("Enter 1–100");
-      body.innerHTML="";
-      for(let i=1;i<=n;i++){
-        const r=document.createElement("tr");
-        r.innerHTML=`
-        <td class="border p-2 font-medium">L${String(i).padStart(3,"0")}</td>
-        <td contenteditable="true" class="border p-2"></td>
-        <td contenteditable="true" class="border p-2"></td>
-        <td contenteditable="true" class="border p-2"></td>
-        <td contenteditable="true" class="border p-2"></td>
-        <td class="border p-2 bg-gray-50 font-semibold">0</td>`;
+    // === Register Table ===
+    document.getElementById("buildTableBtn").onclick = () => {
+      const n = parseInt(document.getElementById("numLearners").value);
+      if (!n || n < 1) return alert("Enter 1–100");
+      const body = document.getElementById("registerBody");
+      body.innerHTML = "";
+      for (let i = 1; i <= n; i++) {
+        const r = document.createElement("tr");
+        r.innerHTML = `
+          <td contenteditable="true" class="border p-2 text-gray-700">L${String(i).padStart(3, "0")}</td>
+          <td contenteditable="true" class="border p-2"></td>
+          <td contenteditable="true" class="border p-2"></td>
+          <td contenteditable="true" class="border p-2"></td>
+          <td contenteditable="true" class="border p-2"></td>
+          <td class="border p-2 bg-gray-50 font-semibold">0</td>`;
         body.appendChild(r);
       }
-      body.addEventListener("input",e=>{
-        if(!e.target.closest("td[contenteditable='true']"))return;
-        const row=e.target.parentElement;
-        const vals=[...row.querySelectorAll("td[contenteditable='true']")]
-          .map(td=>parseFloat(td.textContent)||0);
-        row.lastElementChild.textContent=Math.min(vals.reduce((a,b)=>a+b,0),100).toFixed(0);
+      body.addEventListener("input", e => {
+        if (!e.target.closest("td[contenteditable='true']")) return;
+        const row = e.target.parentElement;
+        const vals = [...row.querySelectorAll("td[contenteditable='true']:not(:first-child)")]
+          .map(td => parseFloat(td.textContent) || 0);
+        row.lastElementChild.textContent = Math.min(vals.reduce((a, b) => a + b, 0), 100).toFixed(0);
       });
-      tableContainer.classList.remove("hidden");
+      document.getElementById("tableContainer").classList.remove("hidden");
     };
 
     // === Save Register Data ===
-    document.getElementById("saveBtn").onclick=async()=>{
-      const rows=[...document.querySelectorAll("#registerBody tr")];
-      if(!rows.length)return alert("Generate the table first!");
-      const lessonId="LP"+Date.now();
-      const data=rows.map(r=>{
-        const c=r.children;
-        return{
-          lesson_id:lessonId,
-          learner_id:c[0].textContent.trim(),
-          understanding:parseFloat(c[1].textContent)||0,
-          application:parseFloat(c[2].textContent)||0,
-          communication:parseFloat(c[3].textContent)||0,
-          behavior:parseFloat(c[4].textContent)||0,
-          total:parseFloat(c[5].textContent)||0
+    document.getElementById("saveBtn").onclick = async () => {
+      const rows = [...document.querySelectorAll("#registerBody tr")];
+      if (!rows.length) return alert("Generate the table first!");
+      const lessonId = "LP" + Date.now();
+      const data = rows.map((r, i) => {
+        const c = r.children;
+        const id = c[0].textContent.trim() || `L${String(i + 1).padStart(3, "0")}`;
+        return {
+          lesson_id: lessonId,
+          learner_id: id,
+          understanding: parseFloat(c[1].textContent) || 0,
+          application: parseFloat(c[2].textContent) || 0,
+          communication: parseFloat(c[3].textContent) || 0,
+          behavior: parseFloat(c[4].textContent) || 0,
+          total: parseFloat(c[5].textContent) || 0
         };
       });
-      const res=await fetch(`${backend}/save_performance`,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(data)
+      const res = await fetch(`${backend}/save_performance`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
       });
-      const j=await res.json(); alert(j.message||j.error);
+      const j = await res.json();
+      alert(j.message || j.error);
     };
 
-    // === Dashboard Loader ===
-    document.getElementById("loadData").onclick=async()=>{
-      const res=await fetch(`${backend}/fetch_data`);
-      const data=await res.json();
-      if(!Array.isArray(data)||!data.length)
-        return document.getElementById("dataOutput").innerHTML="<p class='text-gray-500'>No records found.</p>";
-      let html=`<table class='w-full border-collapse'><thead><tr class='bg-gray-100'>
-        <th>ID</th><th>Lesson</th><th>Learner</th><th>U</th><th>A</th>
-        <th>C</th><th>B</th><th>Total</th><th>Time</th></tr></thead><tbody>`;
-      data.forEach(r=>{
-        html+=`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>
-        <td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td>
-        <td>${r[7]}</td><td>${r[8]}</td></tr>`;
+    // === Dashboard ===
+    document.getElementById("loadData").onclick = async () => {
+      const res = await fetch(`${backend}/fetch_data`);
+      const data = await res.json();
+      if (!Array.isArray(data) || !data.length)
+        return document.getElementById("dataOutput").innerHTML =
+          "<p class='text-gray-500'>No records found.</p>";
+
+      const learners = {};
+      data.forEach(r => {
+        const id = r[2];
+        if (!learners[id]) learners[id] = { count: 0, u: 0, a: 0, c: 0, b: 0, total: 0 };
+        learners[id].count++;
+        learners[id].u += r[3];
+        learners[id].a += r[4];
+        learners[id].c += r[5];
+        learners[id].b += r[6];
+        learners[id].total += r[7];
       });
-      html+="</tbody></table>";
-      document.getElementById("dataOutput").innerHTML=html;
+
+      let table = document.createElement("table");
+      table.className = "w-full border-collapse";
+      table.innerHTML = `
+        <thead><tr class='bg-gray-100'>
+          <th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Avg Total</th><th>Level</th>
+        </tr></thead><tbody></tbody>`;
+      const tbody = table.querySelector("tbody");
+
+      for (const id in learners) {
+        const l = learners[id];
+        const avg = (l.total / l.count).toFixed(1);
+        let color, level;
+        if (avg >= 90) { color = "bg-green-100 text-green-700"; level = "Exemplary"; }
+        else if (avg >= 75) { color = "bg-yellow-100 text-yellow-700"; level = "Proficient"; }
+        else if (avg >= 60) { color = "bg-orange-100 text-orange-700"; level = "Basic"; }
+        else if (avg >= 40) { color = "bg-red-100 text-red-700"; level = "Needs Improvement"; }
+        else { color = "bg-gray-200 text-gray-700"; level = "Unsatisfactory"; }
+
+        const tr = document.createElement("tr");
+        tr.className = color;
+        tr.innerHTML = `
+          <td>${id}</td>
+          <td>${(l.u / l.count).toFixed(1)}</td>
+          <td>${(l.a / l.count).toFixed(1)}</td>
+          <td>${(l.c / l.count).toFixed(1)}</td>
+          <td>${(l.b / l.count).toFixed(1)}</td>
+          <td class='font-bold'>${avg}</td>
+          <td class='font-semibold'>${level}</td>`;
+        tbody.appendChild(tr);
+      }
+
+      const output = document.getElementById("dataOutput");
+      output.innerHTML = "";
+      output.appendChild(table);
+
+      // === Excel Export ===
+      document.getElementById("downloadExcelBtn").onclick = () => {
+        const wb = XLSX.utils.table_to_book(table, { sheet: "Dashboard" });
+        XLSX.writeFile(wb, "Performance_Dashboard.xlsx");
+      };
     };
   </script>
 </body>
