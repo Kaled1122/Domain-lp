@@ -12,26 +12,26 @@ app = Flask(__name__)
 CORS(app)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+# Railway PostgreSQL
 DB_URL = "postgresql://postgres:eoTlRaNGAiMEqwzsYPkzKJYWudCSRSOq@postgres.railway.internal:5432/railway"
 
 
 def get_db():
     return psycopg2.connect(DB_URL)
 
-
 # ------------------------------------------------------------
 # ✅ UTILITIES
 # ------------------------------------------------------------
 def extract_text(file):
-    """Extract text from PDF or TXT."""
+    """Extract readable text from PDF or TXT files."""
     name = file.filename.lower()
     if name.endswith(".pdf"):
         reader = PdfReader(file)
-        return "\n".join([p.extract_text() or "" for p in reader.pages]).strip()
-    if name.endswith(".txt"):
+        return "\n".join([page.extract_text() or "" for page in reader.pages]).strip()
+    elif name.endswith(".txt"):
         return file.read().decode("utf-8", errors="ignore").strip()
-    return ""
-
+    else:
+        return ""
 
 # ------------------------------------------------------------
 # ✅ ROUTES
@@ -39,7 +39,6 @@ def extract_text(file):
 @app.route("/")
 def home():
     return jsonify({"status": "✅ BAE Training Suite Backend Running"})
-
 
 # ---------- AI LESSON PLAN GENERATOR ----------
 @app.route("/generate_lesson", methods=["POST"])
@@ -91,16 +90,17 @@ Return HTML only.
         print("❌ Generate Error:", e)
         return jsonify({"error": str(e)}), 500
 
-
 # ---------- SAVE PERFORMANCE ----------
 @app.route("/save_performance", methods=["POST"])
 def save_performance():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
         conn = get_db()
         cur = conn.cursor()
-        cur.execute(
-            """
+        cur.execute("""
         CREATE TABLE IF NOT EXISTS performance_records (
             id SERIAL PRIMARY KEY,
             lesson_id TEXT,
@@ -112,26 +112,24 @@ def save_performance():
             total FLOAT,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        """
-        )
+        """)
+
         for r in data:
-            cur.execute(
-                """
-            INSERT INTO performance_records
-            (lesson_id, learner_id, understanding, application,
-             communication, behavior, total)
-            VALUES (%s,%s,%s,%s,%s,%s,%s);
-            """,
-                (
-                    r.get("lesson_id"),
-                    r.get("learner_id"),
-                    r.get("understanding", 0),
-                    r.get("application", 0),
-                    r.get("communication", 0),
-                    r.get("behavior", 0),
-                    r.get("total", 0),
-                ),
-            )
+            cur.execute("""
+                INSERT INTO performance_records
+                (lesson_id, learner_id, understanding, application,
+                 communication, behavior, total)
+                VALUES (%s,%s,%s,%s,%s,%s,%s);
+            """, (
+                r.get("lesson_id"),
+                r.get("learner_id"),
+                r.get("understanding", 0),
+                r.get("application", 0),
+                r.get("communication", 0),
+                r.get("behavior", 0),
+                r.get("total", 0),
+            ))
+
         conn.commit()
         cur.close()
         conn.close()
@@ -139,7 +137,6 @@ def save_performance():
     except Exception as e:
         print("❌ Save Error:", e)
         return jsonify({"error": str(e)}), 500
-
 
 # ---------- FETCH PERFORMANCE ----------
 @app.route("/fetch_data")
@@ -154,7 +151,6 @@ def fetch_data():
         return jsonify(rows)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ------------------------------------------------------------
 # ✅ RUN
