@@ -10,25 +10,11 @@ body {
   font-family: "Inter", sans-serif;
   background-color: #f5f6f7;
   color: #1f2937;
-  line-height: 1.5;
 }
-header {
-  text-align: center;
-  margin-bottom: 2.5rem;
-}
-h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1e3a8a;
-}
-h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: #1e3a8a;
-}
+h1 { font-size: 2rem; font-weight: 700; color: #1e3a8a; }
+h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: #1e3a8a; }
 .card {
-  background-color: #fff;
+  background: #fff;
   border-radius: 0.75rem;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   padding: 2rem;
@@ -43,84 +29,33 @@ nav button {
   border: 1px solid #e5e7eb;
   transition: all 0.2s;
 }
-nav button:hover {
-  background-color: #e5e7eb;
-}
-.active {
-  background-color: #1e3a8a !important;
-  color: white !important;
-  border-color: #1e3a8a;
-}
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-th, td {
-  border: 1px solid #e5e7eb;
-  padding: 10px;
-  text-align: center;
-  font-size: 0.875rem;
-}
-thead th {
-  background-color: #f9fafb;
-  font-weight: 600;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-tr:nth-child(even) {
-  background-color: #f9fafb;
-}
-tr:hover {
-  background-color: #e0e7ff;
-}
+nav button:hover { background-color: #e5e7eb; }
+.active { background-color: #1e3a8a !important; color: white !important; border-color: #1e3a8a; }
+table { border-collapse: collapse; width: 100%; }
+th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: center; font-size: 0.875rem; }
+thead th { background-color: #f9fafb; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+tr:nth-child(even) { background-color: #f9fafb; }
+tr:hover { background-color: #e0e7ff; }
 input, select {
   border: 1px solid #d1d5db;
   border-radius: 4px;
   padding: 6px 8px;
   width: 100%;
 }
-button {
-  transition: transform 0.1s ease-in-out;
-}
-button:active {
-  transform: scale(0.97);
-}
-.btn-primary {
-  background-color: #1e3a8a;
-  color: white;
-  font-weight: 600;
-}
-.btn-primary:hover {
-  background-color: #1d4ed8;
-}
-.btn-secondary {
-  background-color: #374151;
-  color: white;
-}
-.btn-secondary:hover {
-  background-color: #4b5563;
-}
-.btn-success {
-  background-color: #047857;
-  color: white;
-}
-.btn-success:hover {
-  background-color: #059669;
-}
-footer {
-  text-align: center;
-  font-size: 0.8rem;
-  color: #6b7280;
-  margin-top: 2rem;
-}
+button { transition: transform 0.1s ease-in-out; }
+button:active { transform: scale(0.97); }
+.btn-primary { background-color: #1e3a8a; color: white; font-weight: 600; }
+.btn-primary:hover { background-color: #1d4ed8; }
+.btn-success { background-color: #047857; color: white; }
+.btn-success:hover { background-color: #059669; }
+footer { text-align: center; font-size: 0.8rem; color: #6b7280; margin-top: 2rem; }
 </style>
 </head>
 <body class="p-6">
 
-<header>
+<header class="text-center mb-8">
   <h1>BAE Systems — Training Suite</h1>
-  <p class="text-gray-600 mt-1">Lesson Planning • Performance Register • Data Analytics</p>
+  <p class="text-gray-600 mt-1">Lesson Planning • Performance Register • Analytics Dashboard</p>
 </header>
 
 <nav class="flex justify-center mb-8 border-b pb-3">
@@ -154,15 +89,22 @@ footer {
 
 <!-- REGISTER -->
 <section id="register" class="card hidden">
-  <h2>Performance Register</h2>
-  <p class="text-gray-600 mb-4">Enter scores for up to 16 learners (0–25 per domain).</p>
-  <button onclick="saveData()" class="btn-primary px-5 py-2 rounded-md mb-4">Save Records</button>
+  <div class="flex justify-between items-center mb-4">
+    <h2>Performance Register</h2>
+    <div class="flex gap-3 items-center">
+      <input type="number" id="numLearners" min="1" max="50" value="16" class="border px-3 py-1 w-24 text-center" />
+      <button onclick="buildTable()" class="btn-primary px-4 py-2 rounded-md">Create</button>
+      <button onclick="saveData()" class="btn-success px-4 py-2 rounded-md">Save</button>
+    </div>
+  </div>
 
   <div class="overflow-x-auto">
     <table id="regTable">
-      <thead><tr>
-        <th>Learner ID</th><th>Understanding</th><th>Application</th><th>Communication</th><th>Behavior</th><th>Total</th>
-      </tr></thead>
+      <thead>
+        <tr>
+          <th>Learner ID</th><th>Understanding</th><th>Application</th><th>Communication</th><th>Behavior</th><th>Total</th>
+        </tr>
+      </thead>
       <tbody></tbody>
     </table>
   </div>
@@ -172,11 +114,16 @@ footer {
 <section id="dashboard" class="card hidden">
   <div class="flex justify-between items-center mb-4">
     <h2>Performance Dashboard</h2>
-    <button onclick="downloadExcel('dataTable')" class="btn-success px-4 py-2 rounded-md">Export Excel</button>
+    <div class="flex gap-3">
+      <button onclick="loadDashboard()" class="btn-primary px-4 py-2 rounded-md">Load Data</button>
+      <button onclick="downloadExcel('dataTable')" class="btn-success px-4 py-2 rounded-md">Export Excel</button>
+    </div>
   </div>
   <div class="overflow-x-auto">
     <table id="dataTable">
-      <thead><tr><th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Total</th><th>Date</th></tr></thead>
+      <thead>
+        <tr><th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Total</th><th>Date</th></tr>
+      </thead>
       <tbody></tbody>
     </table>
   </div>
@@ -184,8 +131,11 @@ footer {
 
 <!-- AVERAGE -->
 <section id="average" class="card hidden">
-  <h2>Learner Averages</h2>
-  <p class="text-gray-600 mb-3">Automatically computes averages across all entries for each learner.</p>
+  <div class="flex justify-between items-center mb-4">
+    <h2>Learner Averages</h2>
+    <button onclick="loadAverages()" class="btn-primary px-4 py-2 rounded-md">Load Averages</button>
+  </div>
+  <p class="text-gray-600 mb-3">Displays mean performance across all entries for each learner.</p>
   <div class="overflow-x-auto">
     <table id="avgTable">
       <thead><tr><th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Average Total</th></tr></thead>
@@ -208,16 +158,14 @@ function showTab(tab) {
   });
   document.getElementById(tab).classList.remove("hidden");
   document.getElementById("btn-"+tab).classList.add("active");
-  if(tab==="register") buildTable();
-  if(tab==="dashboard") loadDashboard();
-  if(tab==="average") loadAverages();
 }
 
 function buildTable() {
-  const tb=document.querySelector("#regTable tbody");
-  tb.innerHTML="";
-  for(let i=1;i<=16;i++){
-    tb.innerHTML+=`<tr>
+  const num = parseInt(document.getElementById("numLearners").value) || 16;
+  const tb = document.querySelector("#regTable tbody");
+  tb.innerHTML = "";
+  for(let i=1;i<=num;i++){
+    tb.innerHTML += `<tr>
       <td><input value="" class="border p-1 w-24 text-center"></td>
       <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
       <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
