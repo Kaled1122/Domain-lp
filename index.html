@@ -16,18 +16,16 @@
 <body class="min-h-screen flex flex-col items-center p-6">
   <header class="w-full max-w-5xl text-center mb-6">
     <h1 class="text-3xl font-extrabold text-gray-900">BAE Training Suite</h1>
-    <p class="text-gray-600">Lesson Planner • Performance Register • Dashboard</p>
+    <p class="text-gray-600">Lesson Planner • Performance Register</p>
   </header>
 
-  <!-- Tabs -->
   <nav class="flex w-full max-w-5xl mb-8 bg-white shadow-sm rounded-md overflow-hidden">
     <button class="tab-btn active" data-tab="lesson">Lesson Plan</button>
     <button class="tab-btn" data-tab="register">Performance Register</button>
-    <button class="tab-btn" data-tab="dashboard">Dashboard</button>
   </nav>
 
   <main class="w-full max-w-5xl space-y-8">
-    <!-- Lesson Plan Generator -->
+    <!-- LESSON PLAN GENERATOR -->
     <section id="lesson" class="tab-content">
       <div class="card space-y-4">
         <h2 class="text-xl font-bold">Lesson Plan Generator</h2>
@@ -35,9 +33,10 @@
           <div class="grid md:grid-cols-2 gap-4">
             <input name="teacher" required class="border rounded-md p-2" placeholder="Teacher Name" />
             <input name="lesson_title" required class="border rounded-md p-2" placeholder="Lesson Title" />
-            <input name="duration" required class="border rounded-md p-2" placeholder="Duration (e.g., 45 minutes)" />
+            <input name="duration" required class="border rounded-md p-2" placeholder="Duration (e.g., 45 min)" />
             <select name="cefr" required class="border rounded-md p-2">
-              <option value="">CEFR Level</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+              <option value="">CEFR Level</option>
+              <option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
             </select>
           </div>
           <textarea name="profile" rows="2" required class="border rounded-md p-2 w-full" placeholder="Learner Profile"></textarea>
@@ -52,13 +51,48 @@
       </div>
     </section>
 
-    <!-- Placeholder for other tabs (register + dashboard) -->
-    <section id="register" class="tab-content hidden"><div class="card">Register Tab (Next)</div></section>
-    <section id="dashboard" class="tab-content hidden"><div class="card">Dashboard Tab (Next)</div></section>
+    <!-- PERFORMANCE REGISTER -->
+    <section id="register" class="tab-content hidden">
+      <div class="card space-y-4">
+        <h2 class="text-xl font-bold mb-2">Performance Register</h2>
+        <p class="text-gray-600 mb-4">Choose learner count and record domain scores.</p>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <label class="font-semibold">Number of Learners:</label>
+          <input id="numLearners" type="number" min="1" max="100" value="16"
+                 class="border rounded-md p-2 w-24 text-center" />
+          <button id="buildTableBtn"
+                  class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
+            Generate Table
+          </button>
+        </div>
+
+        <div id="tableContainer" class="overflow-x-auto hidden">
+          <table class="w-full border-collapse mt-4 text-sm">
+            <thead>
+              <tr class="bg-gray-100">
+                <th class="border p-2">Learner ID</th>
+                <th class="border p-2">Understanding (25)</th>
+                <th class="border p-2">Application (25)</th>
+                <th class="border p-2">Communication (25)</th>
+                <th class="border p-2">Behavior (25)</th>
+                <th class="border p-2">Total (100)</th>
+              </tr>
+            </thead>
+            <tbody id="registerBody"></tbody>
+          </table>
+
+          <button id="saveBtn"
+                  class="mt-6 bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700">
+            💾 Save to Database
+          </button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <script>
-    const backend = "https://<YOUR-RAILWAY-APP-URL>"; // 🔧 Replace with actual backend
+    const backend = "https://<YOUR-RAILWAY-APP-URL>"; // change after deploy
 
     // --- Tabs ---
     const tabs = document.querySelectorAll(".tab-btn");
@@ -70,26 +104,70 @@
       document.getElementById(t.dataset.tab).classList.remove("hidden");
     }));
 
-    // --- Lesson Form Submission ---
+    // --- LESSON PLAN GENERATOR ---
     const form = document.getElementById("lessonForm");
     const output = document.getElementById("lessonOutput");
-
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       output.innerHTML = "⏳ Generating lesson plan...";
       const formData = new FormData(form);
-      try {
-        const res = await fetch(`${backend}/generate_lesson`, {
-          method: "POST",
-          body: formData
-        });
-        const html = await res.text();
-        output.innerHTML = html;
-      } catch (err) {
-        console.error(err);
-        output.innerHTML = "<p class='text-red-600'>❌ Error generating lesson plan</p>";
-      }
+      const res = await fetch(`${backend}/generate_lesson`, { method: "POST", body: formData });
+      output.innerHTML = await res.text();
     });
+
+    // --- PERFORMANCE REGISTER ---
+    const buildBtn = document.getElementById("buildTableBtn");
+    const tableBody = document.getElementById("registerBody");
+    const tableContainer = document.getElementById("tableContainer");
+
+    buildBtn.onclick = () => {
+      const n = parseInt(document.getElementById("numLearners").value);
+      if (!n || n < 1) return alert("Enter a valid number (1–100)");
+      tableBody.innerHTML = "";
+      for (let i = 1; i <= n; i++) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td class="border p-2 text-center font-medium">L${String(i).padStart(3,"0")}</td>
+          <td contenteditable="true" class="border p-2 text-center"></td>
+          <td contenteditable="true" class="border p-2 text-center"></td>
+          <td contenteditable="true" class="border p-2 text-center"></td>
+          <td contenteditable="true" class="border p-2 text-center"></td>
+          <td class="border p-2 text-center bg-gray-50 font-semibold">0</td>`;
+        tableBody.appendChild(row);
+      }
+      tableBody.addEventListener("input", e => {
+        if (!e.target.closest("td[contenteditable='true']")) return;
+        const row = e.target.parentElement;
+        const vals = [...row.querySelectorAll("td[contenteditable='true']")].map(td=>parseFloat(td.textContent)||0);
+        row.lastElementChild.textContent = Math.min(vals.reduce((a,b)=>a+b,0),100).toFixed(0);
+      });
+      tableContainer.classList.remove("hidden");
+    };
+
+    // --- SAVE PERFORMANCE ---
+    document.getElementById("saveBtn").onclick = async () => {
+      const rows = [...document.querySelectorAll("#registerBody tr")];
+      if (!rows.length) return alert("Generate the table first!");
+      const lessonId = "LP" + Date.now();
+      const data = rows.map(r=>{
+        const c=r.children;
+        return {
+          lesson_id:lessonId,
+          learner_id:c[0].textContent.trim(),
+          understanding:parseFloat(c[1].textContent)||0,
+          application:parseFloat(c[2].textContent)||0,
+          communication:parseFloat(c[3].textContent)||0,
+          behavior:parseFloat(c[4].textContent)||0,
+          total:parseFloat(c[5].textContent)||0
+        };
+      });
+      const res=await fetch(`${backend}/save_performance`,{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(data)
+      });
+      const result=await res.json();
+      alert(result.message||result.error);
+    };
   </script>
 </body>
 </html>
