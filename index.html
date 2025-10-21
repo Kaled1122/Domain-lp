@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BAE Training Suite</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -27,78 +27,38 @@
   </nav>
 
   <main class="w-full max-w-5xl space-y-8">
-
     <!-- Lesson Plan Generator -->
     <section id="lesson" class="tab-content">
       <div class="card space-y-4">
         <h2 class="text-xl font-bold">Lesson Plan Generator</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <input id="topic" class="border rounded-md p-2" placeholder="Topic" />
-          <input id="duration" class="border rounded-md p-2" placeholder="Duration (e.g. 45 min)" />
-          <select id="cefr" class="border rounded-md p-2">
-            <option value="">CEFR Level</option><option>A1</option><option>A2</option>
-            <option>B1</option><option>B2</option><option>C1</option><option>C2</option>
-          </select>
-        </div>
-        <button id="generateLesson"
-                class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-          Generate Lesson Plan
-        </button>
+        <form id="lessonForm" class="space-y-3">
+          <div class="grid md:grid-cols-2 gap-4">
+            <input name="teacher" required class="border rounded-md p-2" placeholder="Teacher Name" />
+            <input name="lesson_title" required class="border rounded-md p-2" placeholder="Lesson Title" />
+            <input name="duration" required class="border rounded-md p-2" placeholder="Duration (e.g., 45 minutes)" />
+            <select name="cefr" required class="border rounded-md p-2">
+              <option value="">CEFR Level</option><option>A1</option><option>A2</option><option>B1</option><option>B2</option><option>C1</option><option>C2</option>
+            </select>
+          </div>
+          <textarea name="profile" rows="2" required class="border rounded-md p-2 w-full" placeholder="Learner Profile"></textarea>
+          <textarea name="problems" rows="2" required class="border rounded-md p-2 w-full" placeholder="Anticipated Problems & Solutions"></textarea>
+          <label class="block font-semibold">Upload Lesson File (.pdf / .txt)</label>
+          <input type="file" name="file" accept=".pdf,.txt" required class="border rounded-md p-2 w-full" />
+          <button id="generateLesson" type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+            Generate Lesson Plan
+          </button>
+        </form>
         <div id="lessonOutput" class="mt-4 border rounded-md p-4 bg-gray-50 text-sm"></div>
       </div>
     </section>
 
-    <!-- Performance Register -->
-    <section id="register" class="tab-content hidden">
-      <div class="card space-y-4">
-        <h2 class="text-xl font-bold mb-2">Performance Register</h2>
-        <div class="flex flex-wrap items-center gap-3">
-          <label class="font-semibold">Number of Learners:</label>
-          <input id="numLearners" type="number" min="1" max="100" value="16"
-                 class="border rounded-md p-2 w-24 text-center" />
-          <button id="buildTableBtn"
-                  class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-            Generate Table
-          </button>
-        </div>
-
-        <div id="tableContainer" class="overflow-x-auto hidden">
-          <table class="w-full border-collapse mt-4 text-sm">
-            <thead>
-              <tr class="bg-gray-100">
-                <th class="border p-2">Learner ID</th>
-                <th class="border p-2">Understanding (25)</th>
-                <th class="border p-2">Application (25)</th>
-                <th class="border p-2">Communication (25)</th>
-                <th class="border p-2">Behavior (25)</th>
-                <th class="border p-2">Total (100)</th>
-              </tr>
-            </thead>
-            <tbody id="registerBody"></tbody>
-          </table>
-          <button id="saveBtn"
-                  class="mt-6 bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700">
-            💾 Save to Database
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Dashboard -->
-    <section id="dashboard" class="tab-content hidden">
-      <div class="card">
-        <h2 class="text-xl font-bold mb-4">Performance Dashboard</h2>
-        <button id="loadData" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
-          🔄 Load Data
-        </button>
-        <div id="dataOutput" class="overflow-x-auto mt-4 text-sm"></div>
-      </div>
-    </section>
-
+    <!-- Placeholder for other tabs (register + dashboard) -->
+    <section id="register" class="tab-content hidden"><div class="card">Register Tab (Next)</div></section>
+    <section id="dashboard" class="tab-content hidden"><div class="card">Dashboard Tab (Next)</div></section>
   </main>
 
   <script>
-    const backend = "https://<YOUR-RAILWAY-APP-URL>"; // replace after deploy
+    const backend = "https://<YOUR-RAILWAY-APP-URL>"; // 🔧 Replace with actual backend
 
     // --- Tabs ---
     const tabs = document.querySelectorAll(".tab-btn");
@@ -110,87 +70,26 @@
       document.getElementById(t.dataset.tab).classList.remove("hidden");
     }));
 
-    // --- Lesson Generator ---
-    document.getElementById("generateLesson").onclick = async () => {
-      const topic = document.getElementById("topic").value || "General Lesson";
-      const duration = document.getElementById("duration").value || "45 minutes";
-      const cefr = document.getElementById("cefr").value || "A1";
-      const out = document.getElementById("lessonOutput");
-      out.innerHTML = "⏳ Generating lesson...";
-      const res = await fetch(`${backend}/generate_lesson`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic, duration, cefr })
-      });
-      out.innerHTML = await res.text();
-    };
+    // --- Lesson Form Submission ---
+    const form = document.getElementById("lessonForm");
+    const output = document.getElementById("lessonOutput");
 
-    // --- Build Register Table ---
-    const buildBtn = document.getElementById("buildTableBtn");
-    const tableBody = document.getElementById("registerBody");
-    const tableContainer = document.getElementById("tableContainer");
-
-    buildBtn.onclick = () => {
-      const n = parseInt(document.getElementById("numLearners").value);
-      if (!n || n < 1) return alert("Enter valid number");
-      tableBody.innerHTML = "";
-      for (let i=1;i<=n;i++){
-        const r=document.createElement("tr");
-        r.innerHTML=`
-          <td class="border p-2 text-center font-medium">L${String(i).padStart(3,"0")}</td>
-          <td contenteditable="true" class="border p-2 text-center"></td>
-          <td contenteditable="true" class="border p-2 text-center"></td>
-          <td contenteditable="true" class="border p-2 text-center"></td>
-          <td contenteditable="true" class="border p-2 text-center"></td>
-          <td class="border p-2 text-center bg-gray-50 font-semibold">0</td>`;
-        tableBody.appendChild(r);
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      output.innerHTML = "⏳ Generating lesson plan...";
+      const formData = new FormData(form);
+      try {
+        const res = await fetch(`${backend}/generate_lesson`, {
+          method: "POST",
+          body: formData
+        });
+        const html = await res.text();
+        output.innerHTML = html;
+      } catch (err) {
+        console.error(err);
+        output.innerHTML = "<p class='text-red-600'>❌ Error generating lesson plan</p>";
       }
-      tableBody.addEventListener("input", e=>{
-        if(!e.target.closest("td[contenteditable='true']"))return;
-        const row=e.target.parentElement;
-        const vals=[...row.querySelectorAll("td[contenteditable='true']")]
-          .map(td=>parseFloat(td.textContent)||0);
-        row.lastElementChild.textContent=Math.min(vals.reduce((a,b)=>a+b,0),100).toFixed(0);
-      });
-      tableContainer.classList.remove("hidden");
-    };
-
-    // --- Save Register Data ---
-    document.getElementById("saveBtn").onclick = async () => {
-      const rows = Array.from(document.querySelectorAll("#registerBody tr"));
-      const lessonId = "LP" + Date.now();
-      const data = rows.map(r=>{
-        const c=r.children;
-        return {
-          lesson_id: lessonId,
-          learner_id:c[0].textContent.trim(),
-          understanding:parseFloat(c[1].textContent)||0,
-          application:parseFloat(c[2].textContent)||0,
-          communication:parseFloat(c[3].textContent)||0,
-          behavior:parseFloat(c[4].textContent)||0,
-          total:parseFloat(c[5].textContent)||0
-        };
-      });
-      const res = await fetch(`${backend}/save_performance`,{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(data)
-      });
-      const j=await res.json(); alert(j.message||j.error);
-    };
-
-    // --- Dashboard Fetch ---
-    document.getElementById("loadData").onclick = async ()=>{
-      const res=await fetch(`${backend}/fetch_data`);
-      const data=await res.json();
-      let html="<table class='w-full border-collapse'><thead><tr class='bg-gray-100'><th>ID</th><th>Lesson</th><th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Total</th><th>Time</th></tr></thead><tbody>";
-      data.forEach(r=>{
-        html+=`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td>
-        <td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td><td>${r[6]}</td>
-        <td>${r[7]}</td><td>${r[8]}</td></tr>`;
-      });
-      html+="</tbody></table>";
-      document.getElementById("dataOutput").innerHTML=html;
-    };
+    });
   </script>
 </body>
 </html>
