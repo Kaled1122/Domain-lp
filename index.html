@@ -1,257 +1,219 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BAE Training Suite</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    body { font-family: "Inter", sans-serif; background-color: #f9fafb; color: #111827; }
-    .tab-btn { flex: 1; padding: 12px; font-weight: 600; border-bottom: 3px solid transparent; cursor: pointer; }
-    .tab-btn.active { color: #1d4ed8; border-color: #1d4ed8; background-color: #eef2ff; }
-    .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); padding: 24px; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: center; }
-  </style>
-</head>
+import os
+import psycopg2
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from openai import OpenAI
+from PyPDF2 import PdfReader
+from datetime import datetime
 
-<body class="min-h-screen flex flex-col items-center p-6">
-  <header class="w-full max-w-6xl text-center mb-6">
-    <h1 class="text-3xl font-extrabold text-gray-900">BAE Training Suite</h1>
-    <p class="text-gray-600">Lesson Planner • Performance Register • Dashboard</p>
-  </header>
+# ------------------------------------------------------------
+# ✅ APP SETUP
+# ------------------------------------------------------------
+app = Flask(__name__)
+CORS(app)
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-  <nav class="flex w-full max-w-6xl mb-8 bg-white shadow-sm rounded-md overflow-hidden">
-    <button class="tab-btn active" data-tab="lesson">Lesson Plan</button>
-    <button class="tab-btn" data-tab="register">Performance Register</button>
-    <button class="tab-btn" data-tab="dashboard">Dashboard</button>
-  </nav>
+# ✅ Railway PostgreSQL connection
+DB_URL = "postgresql://postgres:eoTlRaNGAiMEqwzsYPkzKJYWudCSRSOq@postgres.railway.internal:5432/railway"
 
-  <main class="w-full max-w-6xl space-y-8">
-    <!-- LESSON PLAN GENERATOR -->
-    <section id="lesson" class="tab-content">
-      <div class="card space-y-4">
-        <h2 class="text-xl font-bold">Lesson Plan Generator</h2>
-        <form id="lessonForm" class="space-y-3">
-          <div class="grid md:grid-cols-2 gap-4">
-            <input name="teacher" required class="border rounded-md p-2" placeholder="Teacher Name" />
-            <input name="lesson_title" required class="border rounded-md p-2" placeholder="Lesson Title" />
-            <input name="duration" required class="border rounded-md p-2" placeholder="Duration (e.g., 45 min)" />
-            <select name="cefr" required class="border rounded-md p-2">
-              <option value="">CEFR Level</option><option>A1</option><option>A2</option>
-              <option>B1</option><option>B2</option><option>C1</option><option>C2</option>
-            </select>
-          </div>
-          <textarea name="profile" rows="2" required class="border rounded-md p-2 w-full" placeholder="Learner Profile"></textarea>
-          <textarea name="problems" rows="2" required class="border rounded-md p-2 w-full" placeholder="Anticipated Problems & Solutions"></textarea>
-          <label class="block font-semibold">Upload Lesson File (.pdf / .txt)</label>
-          <input type="file" name="file" accept=".pdf,.txt" required class="border rounded-md p-2 w-full" />
-          <button id="generateLesson" type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
-            Generate Lesson Plan
-          </button>
-        </form>
+def get_db():
+    return psycopg2.connect(DB_URL)
 
-        <div id="lessonOutput" class="mt-4 border rounded-md p-4 bg-gray-50 text-sm"></div>
-        <button id="downloadPdfBtn" class="hidden bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">⬇️ Download PDF</button>
-      </div>
-    </section>
+# ------------------------------------------------------------
+# ✅ UTILITIES
+# ------------------------------------------------------------
+def extract_text(file):
+    """Extract text from PDF or TXT files."""
+    name = file.filename.lower()
+    if name.endswith(".pdf"):
+        reader = PdfReader(file)
+        return "\n".join([page.extract_text() or "" for page in reader.pages]).strip()
+    elif name.endswith(".txt"):
+        return file.read().decode("utf-8", errors="ignore").strip()
+    return ""
 
-    <!-- PERFORMANCE REGISTER -->
-    <section id="register" class="tab-content hidden">
-      <div class="card space-y-4">
-        <h2 class="text-xl font-bold mb-2">Performance Register</h2>
-        <div class="flex flex-wrap items-center gap-3">
-          <label class="font-semibold">Number of Learners:</label>
-          <input id="numLearners" type="number" min="1" max="100" value="16"
-                 class="border rounded-md p-2 w-24 text-center" />
-          <button id="buildTableBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-            Generate Table
-          </button>
-        </div>
+# ------------------------------------------------------------
+# ✅ ROUTES
+# ------------------------------------------------------------
+@app.route("/")
+def home():
+    return jsonify({"status": "✅ BAE Training Suite Backend Running"})
 
-        <div id="tableContainer" class="overflow-x-auto hidden">
-          <table class="w-full border-collapse mt-4 text-sm">
-            <thead>
-              <tr class="bg-gray-100">
-                <th>Learner ID</th><th>Understanding (25)</th><th>Application (25)</th>
-                <th>Communication (25)</th><th>Behavior (25)</th><th>Total (100)</th>
-              </tr>
-            </thead>
-            <tbody id="registerBody"></tbody>
-          </table>
-          <button id="saveBtn" class="mt-6 bg-blue-600 text-white px-5 py-2 rounded-md hover:bg-blue-700">
-            💾 Save to Database
-          </button>
-        </div>
-      </div>
-    </section>
+# ---------- LESSON PLAN GENERATOR ----------
+@app.route("/generate_lesson", methods=["POST"])
+def generate_lesson():
+    try:
+        file = request.files.get("file")
+        if not file:
+            return jsonify({"error": "Please upload a .pdf or .txt lesson file"}), 400
 
-    <!-- DASHBOARD -->
-    <section id="dashboard" class="tab-content hidden">
-      <div class="card">
-        <h2 class="text-xl font-bold mb-4">Performance Dashboard</h2>
-        <div class="flex gap-3">
-          <button id="loadData" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
-            🔄 Load Records
-          </button>
-          <button id="downloadExcelBtn" class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
-            ⬇️ Download Excel
-          </button>
-        </div>
-        <div id="dataOutput" class="overflow-x-auto mt-4 text-sm"></div>
-      </div>
-    </section>
-  </main>
+        teacher = request.form.get("teacher", "Unknown Teacher")
+        lesson_title = request.form.get("lesson_title", "Untitled Lesson")
+        duration = request.form.get("duration", "45 minutes")
+        cefr = request.form.get("cefr", "A1")
+        profile = request.form.get("profile", "Mixed learners")
+        problems = request.form.get("problems", "None")
 
-  <script>
-    const backend = "https://domain-lp-production.up.railway.app";
+        text = extract_text(file)
+        if not text:
+            return jsonify({"error": "No readable text found in file"}), 400
 
-    // === Tabs ===
-    document.querySelectorAll(".tab-btn").forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-        document.querySelectorAll(".tab-content").forEach(s => s.classList.add("hidden"));
-        btn.classList.add("active");
-        document.getElementById(btn.dataset.tab).classList.remove("hidden");
-      };
-    });
+        prompt = f"""
+You are an expert instructional designer working under BAE Systems KSA Training Standards (StanEval Form 0098).
 
-    // === Lesson Plan Generator ===
-    const form = document.getElementById("lessonForm");
-    form.addEventListener("submit", async e => {
-      e.preventDefault();
-      const out = document.getElementById("lessonOutput");
-      const pdfBtn = document.getElementById("downloadPdfBtn");
-      out.innerHTML = "⏳ Generating...";
-      pdfBtn.classList.add("hidden");
+Analyze the uploaded lesson and generate a professional lesson plan in HTML.
 
-      const fd = new FormData(form);
-      const res = await fetch(`${backend}/generate_lesson`, { method: "POST", body: fd });
-      const html = await res.text();
-      out.innerHTML = html;
-      pdfBtn.classList.remove("hidden");
-    });
+Include:
+1️⃣ Lesson Info (Teacher: {teacher}, Title: {lesson_title}, Duration: {duration}, CEFR: {cefr})
+2️⃣ Lesson Objectives (Understanding, Application, Communication, Behavior)
+3️⃣ Lesson Plan Table (Stage | Duration | Objective | Teacher Role | Learner Role | Interaction | Supporting Details)
+4️⃣ Domain Checklists — 5 measurable items per domain (25 points each)
+5️⃣ Interpretation Key — explain performance levels.
 
-    document.getElementById("downloadPdfBtn").onclick = () => {
-      const element = document.getElementById("lessonOutput");
-      html2pdf().from(element).set({ filename: "Lesson_Plan.pdf" }).save();
-    };
+Lesson content:
+{text[:6000]}
 
-    // === Register Table ===
-    document.getElementById("buildTableBtn").onclick = () => {
-      const n = parseInt(document.getElementById("numLearners").value);
-      if (!n || n < 1) return alert("Enter 1–100");
-      const body = document.getElementById("registerBody");
-      body.innerHTML = "";
-      for (let i = 1; i <= n; i++) {
-        const r = document.createElement("tr");
-        r.innerHTML = `
-          <td contenteditable="true" class="border p-2 text-gray-700">L${String(i).padStart(3, "0")}</td>
-          <td contenteditable="true" class="border p-2"></td>
-          <td contenteditable="true" class="border p-2"></td>
-          <td contenteditable="true" class="border p-2"></td>
-          <td contenteditable="true" class="border p-2"></td>
-          <td class="border p-2 bg-gray-50 font-semibold">0</td>`;
-        body.appendChild(r);
-      }
-      body.addEventListener("input", e => {
-        if (!e.target.closest("td[contenteditable='true']")) return;
-        const row = e.target.parentElement;
-        const vals = [...row.querySelectorAll("td[contenteditable='true']:not(:first-child)")]
-          .map(td => parseFloat(td.textContent) || 0);
-        row.lastElementChild.textContent = Math.min(vals.reduce((a, b) => a + b, 0), 100).toFixed(0);
-      });
-      document.getElementById("tableContainer").classList.remove("hidden");
-    };
+Return pure HTML styled with clean white layout, headings, and spacing.
+"""
+        res = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0.3,
+            messages=[{"role": "system", "content": prompt}],
+        )
+        html = res.choices[0].message.content
+        return html, 200, {"Content-Type": "text/html"}
 
-    // === Save Register Data ===
-    document.getElementById("saveBtn").onclick = async () => {
-      const rows = [...document.querySelectorAll("#registerBody tr")];
-      if (!rows.length) return alert("Generate the table first!");
-      const lessonId = "LP" + Date.now();
-      const data = rows.map((r, i) => {
-        const c = r.children;
-        const id = c[0].textContent.trim() || `L${String(i + 1).padStart(3, "0")}`;
-        return {
-          lesson_id: lessonId,
-          learner_id: id,
-          understanding: parseFloat(c[1].textContent) || 0,
-          application: parseFloat(c[2].textContent) || 0,
-          communication: parseFloat(c[3].textContent) || 0,
-          behavior: parseFloat(c[4].textContent) || 0,
-          total: parseFloat(c[5].textContent) || 0
-        };
-      });
-      const res = await fetch(`${backend}/save_performance`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      });
-      const j = await res.json();
-      alert(j.message || j.error);
-    };
+    except Exception as e:
+        print("❌ Generate Error:", e)
+        return jsonify({"error": str(e)}), 500
 
-    // === Dashboard ===
-    document.getElementById("loadData").onclick = async () => {
-      const res = await fetch(`${backend}/fetch_data`);
-      const data = await res.json();
-      if (!Array.isArray(data) || !data.length)
-        return document.getElementById("dataOutput").innerHTML =
-          "<p class='text-gray-500'>No records found.</p>";
+# ---------- PERFORMANCE REGISTER ----------
+@app.route("/save_performance", methods=["POST"])
+def save_performance():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
 
-      const learners = {};
-      data.forEach(r => {
-        const id = r[2];
-        if (!learners[id]) learners[id] = { count: 0, u: 0, a: 0, c: 0, b: 0, total: 0 };
-        learners[id].count++;
-        learners[id].u += r[3];
-        learners[id].a += r[4];
-        learners[id].c += r[5];
-        learners[id].b += r[6];
-        learners[id].total += r[7];
-      });
+        conn = get_db()
+        cur = conn.cursor()
 
-      let table = document.createElement("table");
-      table.className = "w-full border-collapse";
-      table.innerHTML = `
-        <thead><tr class='bg-gray-100'>
-          <th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Avg Total</th><th>Level</th>
-        </tr></thead><tbody></tbody>`;
-      const tbody = table.querySelector("tbody");
+        # Ensure table exists
+        cur.execute("""
+        CREATE TABLE IF NOT EXISTS performance_records (
+            id SERIAL PRIMARY KEY,
+            lesson_id TEXT,
+            learner_id TEXT,
+            understanding FLOAT,
+            application FLOAT,
+            communication FLOAT,
+            behavior FLOAT,
+            total FLOAT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """)
 
-      for (const id in learners) {
-        const l = learners[id];
-        const avg = (l.total / l.count).toFixed(1);
-        let color, level;
-        if (avg >= 90) { color = "bg-green-100 text-green-700"; level = "Exemplary"; }
-        else if (avg >= 75) { color = "bg-yellow-100 text-yellow-700"; level = "Proficient"; }
-        else if (avg >= 60) { color = "bg-orange-100 text-orange-700"; level = "Basic"; }
-        else if (avg >= 40) { color = "bg-red-100 text-red-700"; level = "Needs Improvement"; }
-        else { color = "bg-gray-200 text-gray-700"; level = "Unsatisfactory"; }
+        for r in data:
+            learner_id = (r.get("learner_id") or "").strip()  # keep exactly as typed
 
-        const tr = document.createElement("tr");
-        tr.className = color;
-        tr.innerHTML = `
-          <td>${id}</td>
-          <td>${(l.u / l.count).toFixed(1)}</td>
-          <td>${(l.a / l.count).toFixed(1)}</td>
-          <td>${(l.c / l.count).toFixed(1)}</td>
-          <td>${(l.b / l.count).toFixed(1)}</td>
-          <td class='font-bold'>${avg}</td>
-          <td class='font-semibold'>${level}</td>`;
-        tbody.appendChild(tr);
-      }
+            cur.execute("""
+                INSERT INTO performance_records
+                (lesson_id, learner_id, understanding, application,
+                 communication, behavior, total)
+                VALUES (%s,%s,%s,%s,%s,%s,%s);
+            """, (
+                r.get("lesson_id"),
+                learner_id,
+                float(r.get("understanding", 0)),
+                float(r.get("application", 0)),
+                float(r.get("communication", 0)),
+                float(r.get("behavior", 0)),
+                float(r.get("total", 0)),
+            ))
 
-      const output = document.getElementById("dataOutput");
-      output.innerHTML = "";
-      output.appendChild(table);
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify({"message": f"✅ Saved {len(data)} records successfully"})
 
-      // === Excel Export ===
-      document.getElementById("downloadExcelBtn").onclick = () => {
-        const wb = XLSX.utils.table_to_book(table, { sheet: "Dashboard" });
-        XLSX.writeFile(wb, "Performance_Dashboard.xlsx");
-      };
-    };
-  </script>
-</body>
-</html>
+    except Exception as e:
+        print("❌ Save Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ---------- PERFORMANCE DASHBOARD ----------
+@app.route("/fetch_data")
+def fetch_data():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+        SELECT COALESCE(NULLIF(TRIM(learner_id), ''), 'Unlabeled') AS learner_id,
+               understanding, application, communication, behavior, total, timestamp
+        FROM performance_records
+        WHERE learner_id IS NOT NULL AND TRIM(learner_id) <> ''
+        ORDER BY timestamp DESC;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        data = [
+            {
+                "learner_id": r[0],
+                "understanding": r[1],
+                "application": r[2],
+                "communication": r[3],
+                "behavior": r[4],
+                "total": r[5],
+                "timestamp": r[6].strftime("%Y-%m-%d %H:%M:%S")
+            }
+            for r in rows
+        ]
+        return jsonify(data)
+    except Exception as e:
+        print("❌ Fetch Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ---------- PERFORMANCE AVERAGES (NEW TAB) ----------
+@app.route("/fetch_averages")
+def fetch_averages():
+    try:
+        conn = get_db()
+        cur = conn.cursor()
+        cur.execute("""
+        SELECT COALESCE(NULLIF(TRIM(learner_id), ''), 'Unlabeled') AS learner_id,
+               AVG(understanding) AS understanding,
+               AVG(application) AS application,
+               AVG(communication) AS communication,
+               AVG(behavior) AS behavior,
+               AVG(total) AS total
+        FROM performance_records
+        WHERE learner_id IS NOT NULL AND TRIM(learner_id) <> ''
+        GROUP BY COALESCE(NULLIF(TRIM(learner_id), ''), 'Unlabeled')
+        ORDER BY learner_id;
+        """)
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+
+        data = [
+            {
+                "learner_id": r[0],
+                "understanding": round(r[1] or 0, 1),
+                "application": round(r[2] or 0, 1),
+                "communication": round(r[3] or 0, 1),
+                "behavior": round(r[4] or 0, 1),
+                "total": round(r[5] or 0, 1)
+            }
+            for r in rows
+        ]
+        return jsonify(data)
+    except Exception as e:
+        print("❌ Fetch Error:", e)
+        return jsonify({"error": str(e)}), 500
+
+# ------------------------------------------------------------
+# ✅ RUN
+# ------------------------------------------------------------
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
