@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BAE Performance & Lesson Engine</title>
+<title>BAE Systems Training Suite</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-body{background:#f9fafb;font-family:"Inter",sans-serif;}
-.card{background:#fff;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.08);padding:24px;}
-nav button{padding:10px 16px;border-radius:6px;margin-right:8px;}
-.active{background:#2563eb;color:#fff;}
+body { background:#f9fafb; font-family:"Inter",sans-serif; }
+.card { background:#fff; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.08); padding:24px; }
+nav button { padding:10px 16px; border-radius:6px; margin-right:8px; }
+.active { background:#2563eb; color:#fff; }
 </style>
 </head>
 <body class="p-6">
@@ -26,17 +26,18 @@ nav button{padding:10px 16px;border-radius:6px;margin-right:8px;}
 <!-- LESSON PLAN -->
 <section id="lesson" class="card">
   <h2 class="text-xl font-semibold mb-4">Lesson Plan Generator</h2>
-  <form id="lessonForm" class="space-y-2">
+  <form id="lessonForm" class="space-y-3">
     <input type="text" name="teacher" placeholder="Teacher Name" class="border p-2 w-full">
     <input type="text" name="lesson_title" placeholder="Lesson Title" class="border p-2 w-full">
-    <input type="text" name="duration" placeholder="Duration" class="border p-2 w-full">
+    <input type="text" name="duration" placeholder="Duration (e.g. 45 min)" class="border p-2 w-full">
     <input type="text" name="cefr" placeholder="CEFR Level" class="border p-2 w-full">
     <input type="text" name="profile" placeholder="Learner Profile" class="border p-2 w-full">
-    <input type="file" name="file" accept=".pdf,.txt" class="w-full">
-    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md">Generate</button>
+    <input type="file" name="file" accept=".pdf,.txt" class="w-full border">
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md">Generate Lesson Plan</button>
   </form>
-  <iframe id="lessonOutput" class="w-full mt-4 h-96 border"></iframe>
-  <button id="downloadLesson" class="mt-2 bg-green-600 text-white px-3 py-2 rounded">Download PDF</button>
+
+  <iframe id="lessonOutput" class="w-full mt-4 h-[550px] border"></iframe>
+  <button id="downloadLesson" class="mt-3 bg-green-600 text-white px-4 py-2 rounded-md">⬇️ Download PDF</button>
 </section>
 
 <!-- REGISTER -->
@@ -44,9 +45,7 @@ nav button{padding:10px 16px;border-radius:6px;margin-right:8px;}
   <h2 class="text-xl font-semibold mb-4">Performance Register</h2>
   <button onclick="saveData()" class="bg-blue-600 text-white px-4 py-2 rounded-md mb-3">💾 Save Data</button>
   <table id="regTable" class="w-full border-collapse text-sm">
-    <thead class="bg-gray-100">
-      <tr><th>ID</th><th>Understanding</th><th>Application</th><th>Communication</th><th>Behavior</th><th>Total</th></tr>
-    </thead>
+    <thead class="bg-gray-100"><tr><th>ID</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Total</th></tr></thead>
     <tbody></tbody>
   </table>
 </section>
@@ -73,11 +72,104 @@ nav button{padding:10px 16px;border-radius:6px;margin-right:8px;}
 <script>
 const backend="https://domain-lp-production.up.railway.app";
 
-// tab control
 function showTab(tab){
  ['lesson','register','dashboard','average'].forEach(t=>{
   document.getElementById(t).classList.add('hidden');
   document.getElementById('btn-'+t).classList.remove('active');
  });
  document.getElementById(tab).classList.remove('hidden');
- document.getElementBy
+ document.getElementById('btn-'+tab).classList.add('active');
+ if(tab==='register')buildTable();
+ if(tab==='dashboard')loadDashboard();
+ if(tab==='average')loadAverages();
+}
+
+function buildTable(){
+ const tb=document.querySelector('#regTable tbody');
+ tb.innerHTML='';
+ for(let i=1;i<=16;i++){
+  tb.innerHTML+=`<tr><td><input value="L${i}" class="border p-1 w-16"></td>
+  <td><input type="number" min=0 max=25 class="border p-1 w-16"></td>
+  <td><input type="number" min=0 max=25 class="border p-1 w-16"></td>
+  <td><input type="number" min=0 max=25 class="border p-1 w-16"></td>
+  <td><input type="number" min=0 max=25 class="border p-1 w-16"></td>
+  <td><input readonly class="border p-1 w-16 bg-gray-100"></td></tr>`;
+ }
+ document.querySelectorAll('#regTable input').forEach(i=>{
+  i.oninput=()=>{const r=i.closest('tr').querySelectorAll('input');
+   r[5].value=(+r[1].value||0)+(+r[2].value||0)+(+r[3].value||0)+(+r[4].value||0);
+  };
+ });
+}
+
+async function saveData(){
+ const rows=[...document.querySelectorAll('#regTable tbody tr')].map(r=>{
+  const c=r.querySelectorAll('input');
+  return{lesson_id:'T1',learner_id:c[0].value,
+  understanding:c[1].value,application:c[2].value,communication:c[3].value,
+  behavior:c[4].value,total:c[5].value};
+ });
+ const res=await fetch(`${backend}/save_performance`,{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(rows)});
+ alert((await res.json()).message||'Saved');
+}
+
+function color(t){
+ if(t>=90)return'bg-green-200';
+ if(t>=75)return'bg-yellow-200';
+ if(t>=60)return'bg-orange-200';
+ if(t>=40)return'bg-red-200';
+ return'bg-gray-200';
+}
+
+async function loadDashboard(){
+ const res=await fetch(`${backend}/fetch_data`);
+ const data=await res.json();
+ const tb=document.querySelector('#dataTable tbody');
+ tb.innerHTML='';
+ data.forEach(r=>{
+  tb.innerHTML+=`<tr class="${color(r.total)}"><td>${r.learner_id}</td>
+  <td>${r.understanding}</td><td>${r.application}</td><td>${r.communication}</td>
+  <td>${r.behavior}</td><td>${r.total}</td><td>${r.timestamp}</td></tr>`;
+ });
+}
+
+async function loadAverages(){
+ const res=await fetch(`${backend}/fetch_averages`);
+ const data=await res.json();
+ const tb=document.querySelector('#avgTable tbody');
+ tb.innerHTML='';
+ data.forEach(r=>{
+  tb.innerHTML+=`<tr class="${color(r.total)}"><td>${r.learner_id}</td>
+  <td>${r.understanding}</td><td>${r.application}</td><td>${r.communication}</td>
+  <td>${r.behavior}</td><td>${r.total}</td></tr>`;
+ });
+}
+
+function downloadExcel(id){
+ let csv='';document.querySelectorAll(`#${id} tr`).forEach(r=>{
+  const cols=[...r.querySelectorAll('td,th')].map(c=>c.innerText.replace(/,/g,';'));
+  csv+=cols.join(',')+'\n';
+ });
+ const blob=new Blob([csv],{type:'text/csv'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='data.csv';a.click();
+}
+
+// Lesson Plan
+document.getElementById('lessonForm').onsubmit=async e=>{
+ e.preventDefault();
+ const fd=new FormData(e.target);
+ const res=await fetch(`${backend}/generate_lesson`,{method:'POST',body:fd});
+ const html=await res.text();
+ document.getElementById('lessonOutput').srcdoc=html;
+};
+
+document.getElementById('downloadLesson').onclick=()=>{
+ const frame=document.getElementById('lessonOutput').contentWindow.document;
+ const blob=new Blob([frame.documentElement.outerHTML],{type:'text/html'});
+ const a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download='lesson_plan.html';a.click();
+};
+</script>
+</body>
+</html>
