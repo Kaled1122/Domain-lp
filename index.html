@@ -55,14 +55,13 @@ footer { text-align: center; font-size: 0.8rem; color: #6b7280; margin-top: 2rem
 
 <header class="text-center mb-8">
   <h1>BAE Systems — Training Suite</h1>
-  <p class="text-gray-600 mt-1">Lesson Planning • Performance Register • Analytics Dashboard</p>
+  <p class="text-gray-600 mt-1">Lesson Planning • Performance Register • Dashboard</p>
 </header>
 
 <nav class="flex justify-center mb-8 border-b pb-3">
   <button onclick="showTab('lesson')" id="btn-lesson" class="active">Lesson Plan</button>
   <button onclick="showTab('register')" id="btn-register">Performance Register</button>
   <button onclick="showTab('dashboard')" id="btn-dashboard">Dashboard</button>
-  <button onclick="showTab('average')" id="btn-average">Averages</button>
 </nav>
 
 <!-- LESSON PLAN -->
@@ -129,21 +128,6 @@ footer { text-align: center; font-size: 0.8rem; color: #6b7280; margin-top: 2rem
   </div>
 </section>
 
-<!-- AVERAGE -->
-<section id="average" class="card hidden">
-  <div class="flex justify-between items-center mb-4">
-    <h2>Learner Averages</h2>
-    <button onclick="loadAverages()" class="btn-primary px-4 py-2 rounded-md">Load Averages</button>
-  </div>
-  <p class="text-gray-600 mb-3">Displays mean performance across all entries for each learner.</p>
-  <div class="overflow-x-auto">
-    <table id="avgTable">
-      <thead><tr><th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Average Total</th></tr></thead>
-      <tbody></tbody>
-    </table>
-  </div>
-</section>
-
 <footer>
   © 2025 BAE Systems Saudi Development & Training — Internal Use Only
 </footer>
@@ -152,7 +136,7 @@ footer { text-align: center; font-size: 0.8rem; color: #6b7280; margin-top: 2rem
 const backend = "https://domain-lp-production.up.railway.app";
 
 function showTab(tab) {
-  ["lesson","register","dashboard","average"].forEach(t=>{
+  ["lesson","register","dashboard"].forEach(t=>{
     document.getElementById(t).classList.add("hidden");
     document.getElementById("btn-"+t).classList.remove("active");
   });
@@ -166,7 +150,7 @@ function buildTable() {
   tb.innerHTML = "";
   for(let i=1;i<=num;i++){
     tb.innerHTML += `<tr>
-      <td><input value="" class="border p-1 w-24 text-center"></td>
+      <td><input value="" class="border p-1 w-24 text-center" placeholder="ID"></td>
       <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
       <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
       <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
@@ -195,7 +179,8 @@ async function saveData(){
   alert((await res.json()).message||"Saved");
 }
 
-function color(t){
+function band(t){
+  t = Number(t) || 0;
   if(t>=90)return"bg-green-100";
   if(t>=75)return"bg-yellow-100";
   if(t>=60)return"bg-orange-100";
@@ -209,21 +194,14 @@ async function loadDashboard(){
   const tb=document.querySelector("#dataTable tbody");
   tb.innerHTML="";
   data.forEach(r=>{
-    tb.innerHTML+=`<tr class="${color(r.total)}">
-    <td>${r.learner_id}</td><td>${r.understanding}</td><td>${r.application}</td>
-    <td>${r.communication}</td><td>${r.behavior}</td><td>${r.total}</td><td>${r.timestamp}</td></tr>`;
-  });
-}
-
-async function loadAverages(){
-  const res=await fetch(`${backend}/fetch_averages`);
-  const data=await res.json();
-  const tb=document.querySelector("#avgTable tbody");
-  tb.innerHTML="";
-  data.forEach(r=>{
-    tb.innerHTML+=`<tr class="${color(r.total)}">
-    <td>${r.learner_id}</td><td>${r.understanding}</td><td>${r.application}</td>
-    <td>${r.communication}</td><td>${r.behavior}</td><td>${r.total}</td></tr>`;
+    tb.innerHTML+=`<tr class="${band(r.total)}">
+    <td>${r.learner_id||""}</td>
+    <td>${r.understanding??0}</td>
+    <td>${r.application??0}</td>
+    <td>${r.communication??0}</td>
+    <td>${r.behavior??0}</td>
+    <td class="font-semibold">${r.total??0}</td>
+    <td>${r.timestamp||""}</td></tr>`;
   });
 }
 
