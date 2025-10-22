@@ -20,15 +20,6 @@ logging.basicConfig(level=logging.INFO)
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
 DB_URL = os.getenv("DATABASE_URL")
 
-if not OPENAI_KEY:
-    logging.warning("⚠️ Missing OPENAI_API_KEY — AI generation will fail.")
-if not DB_URL:
-    logging.warning("⚠️ Missing DATABASE_URL — Database functions will fail.")
-
-client = OpenAI(api_key=OPENAI_KEY or "dummy_key")
-pool = SimpleConnectionPool(1, 10, dsn=DB_URL) if DB_URL else None
-
-
 # ------------------------------------------------------------
 # HELPERS
 # ------------------------------------------------------------
