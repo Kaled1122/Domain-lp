@@ -82,7 +82,6 @@ Generate Lesson Plan
 </div>
 </div>
 
-<!-- Summary + Charts -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4" id="summaryCards"></div>
 <canvas id="avgChart" height="120"></canvas>
 
@@ -109,100 +108,30 @@ document.getElementById(t).classList.remove("hidden");
 document.getElementById("btn-"+t).classList.add("active");
 }
 
-function buildTable(){
-const n=+document.getElementById("numLearners").value||16;
-const tb=document.querySelector("#regTable tbody");tb.innerHTML="";
-for(let i=1;i<=n;i++){
-tb.innerHTML+=`<tr>
-<td><input placeholder="ID" class="border p-1 w-24 text-center"></td>
-${Array(4).fill('<td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>').join("")}
-<td><input readonly class="border p-1 w-20 bg-gray-100 text-center font-semibold"></td></tr>`;
-}
-document.querySelectorAll("#regTable input").forEach(i=>{
-i.oninput=()=>{
-const r=i.closest("tr").querySelectorAll("input");
-r[5].value=(+r[1].value||0)+(+r[2].value||0)+(+r[3].value||0)+(+r[4].value||0);
-};
-});
-}
-
-async function saveData(){
-const rows=[...document.querySelectorAll("#regTable tbody tr")].map(r=>{
-const c=r.querySelectorAll("input");
-return{lesson_id:"T1",learner_id:c[0].value,understanding:c[1].value,application:c[2].value,communication:c[3].value,behavior:c[4].value,total:c[5].value};
-});
-const res=await fetch(`${backend}/save_performance`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rows)});
-Swal.fire("Saved", (await res.json()).message||"Saved","success");
-}
-
-async function loadDashboard(filters={}){
-let url=`${backend}/fetch_data`;
-const params=[];
-if(filters.id)params.push(`learner_id=${filters.id}`);
-if(filters.from)params.push(`from=${filters.from}`);
-if(filters.to)params.push(`to=${filters.to}`);
-if(params.length)url+=`?${params.join("&")}`;
-const res=await fetch(url);
-const data=await res.json();
-renderDashboard(data);
-}
-
-function bandColor(t){t=+t||0;
-if(t>=90)return"bg-green-100";if(t>=75)return"bg-yellow-100";
-if(t>=60)return"bg-orange-100";if(t>=40)return"bg-red-100";return"bg-gray-100";}
-
-function renderDashboard(data){
-const tb=document.querySelector("#dataTable tbody");tb.innerHTML="";
-let u=0,a=0,c=0,b=0;
-data.forEach(r=>{
-tb.innerHTML+=`<tr class="${bandColor(r.total)}"><td>${r.learner_id}</td>
-<td>${r.understanding}</td><td>${r.application}</td><td>${r.communication}</td><td>${r.behavior}</td>
-<td class="font-semibold">${r.total}</td><td>${r.timestamp}</td></tr>`;
-u+=r.understanding;a+=r.application;c+=r.communication;b+=r.behavior;
-});
-if(data.length){
-const avg={u:u/data.length,a:a/data.length,c:c/data.length,b:b/data.length};
-document.getElementById("summaryCards").innerHTML=
-Object.entries(avg).map(([k,v])=>`<div class="p-3 rounded shadow text-center bg-indigo-50"><p class="text-sm text-gray-500 uppercase">${k}</p><p class="text-2xl font-bold">${v.toFixed(1)}</p></div>`).join("");
-if(window.avgChartObj)window.avgChartObj.destroy();
-const ctx=document.getElementById("avgChart").getContext("2d");
-window.avgChartObj=new Chart(ctx,{type:"bar",data:{labels:["U","A","C","B"],datasets:[{data:[avg.u,avg.a,avg.c,avg.b],backgroundColor:["#22c55e","#3b82f6","#f97316","#e11d48"]}]},options:{plugins:{legend:{display:false}}}});
-}
-}
-
-function applyFilters(){
-const id=document.getElementById("filterLearner").value.trim();
-const from=document.getElementById("fromDate").value;
-const to=document.getElementById("toDate").value;
-loadDashboard({id,from,to});
-}
-function resetFilters(){document.getElementById("filterLearner").value="";document.getElementById("fromDate").value="";document.getElementById("toDate").value="";loadDashboard();}
-
-function downloadExcel(id){
-let csv='';document.querySelectorAll(`#${id} tr`).forEach(r=>{
-const cols=[...r.querySelectorAll("td,th")].map(c=>c.innerText.replace(/,/g,";"));
-csv+=cols.join(",")+"\n";});
-const blob=new Blob([csv],{type:"text/csv"});
-const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="data.csv";a.click();
-}
-
-function downloadPDF(){
-const element=document.getElementById("dashboard");
-html2pdf().from(element).set({margin:0.5,filename:"dashboard.pdf",html2canvas:{scale:2},jsPDF:{orientation:"landscape"}}).save();
-}
-
-// Lesson Plan
 document.getElementById("lessonForm").onsubmit=async e=>{
 e.preventDefault();
-Swal.showLoading();
+Swal.fire({
+title:"Generating Lesson Plan...",
+html:"This may take 20–40 seconds. Please wait.",
+allowOutsideClick:false,
+didOpen:()=>Swal.showLoading()
+});
 const fd=new FormData(e.target);
+try{
 const res=await fetch(`${backend}/generate_lesson`,{method:"POST",body:fd});
+if(!res.ok)throw new Error("Server Error: "+res.status);
 const html=await res.text();
 document.getElementById("lessonOutput").srcdoc=html;
 Swal.close();
+}catch(err){
+Swal.fire("Error","Failed to generate lesson plan. Check backend.","error");
+console.error(err);
+}
 };
-
-document.getElementById("downloadLesson").onclick=()=>downloadPDF();
+document.getElementById("downloadLesson").onclick=()=>{
+const el=document.getElementById("lessonOutput");
+html2pdf().from(el.contentDocument.body).set({filename:"lesson.pdf"}).save();
+};
 </script>
 </body>
 </html>
