@@ -300,6 +300,8 @@ def fetch_data():
     except Exception as e:
         logging.error(f"Fetch data failed: {e}")
         return jsonify([])
+
+
 @app.post("/save_performance")
 def save_performance():
     """Saves learner performance data from the frontend table."""
