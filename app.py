@@ -152,12 +152,14 @@ Lesson content reference:
 
 ------------------------------------------------------------
 <h3>6. Reflection (Instructor Review)</h3>
-<p>Reflect specifically on how <b>{title}</b> was delivered and how students interacted with its core objectives and skills.</p>
+<p>Based on the uploaded lesson content, generate three short reflection questions that help the instructor evaluate:</p>
 <ul>
-<li>Which stage of this lesson (Warm-Up, Practice, or Production) produced the strongest engagement during activities related to <b>{content[:120]}</b>?</li>
-<li>Did learners successfully demonstrate understanding of the key outcomes taught in this lesson (e.g., {cefr}-level skills or real-world communication tasks)?</li>
-<li>What refinements in timing, materials, or teacher guidance could improve the effectiveness of this lesson for future delivery?</li>
+<li>learner engagement,</li>
+<li>achievement of the lesson objectives, and</li>
+<li>ways to improve future delivery.</li>
 </ul>
+<p>Ensure the questions are <b>specific to the lesson topic</b> described in the uploaded content below:</p>
+<p><i>{content[:500]}</i></p>
 
 """
     try:
