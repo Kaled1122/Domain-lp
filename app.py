@@ -5,7 +5,7 @@ from flask_cors import CORS
 from psycopg2.pool import SimpleConnectionPool
 import pandas as pd
 from PyPDF2 import PdfReader
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from openai import OpenAI
@@ -30,7 +30,7 @@ pool = SimpleConnectionPool(1, 10, dsn=DB_URL) if DB_URL else None
 
 
 # ------------------------------------------------------------
-# UTILITIES
+# HELPERS
 # ------------------------------------------------------------
 def get_conn():
     if not pool:
@@ -65,18 +65,18 @@ def extract_text_from_pdf(file):
 
 
 # ------------------------------------------------------------
-# LESSON PLAN GENERATOR
+# LESSON GENERATOR
 # ------------------------------------------------------------
 def generate_lesson_plan_text(teacher, title, duration, cefr, profile, content):
-    """Generate a full HTML-based lesson plan including structure table and domain checklists."""
-    system_prompt = """
+    """Generate structured HTML lesson plan including full domain checklist."""
+    prompt = f"""
 You are a senior English Language Teaching (ELT) instructional designer for BAE Systems.
 
-Generate a professional, **fully structured HTML lesson plan** for classroom delivery using a formal instructional tone.
+Generate a professional, fully structured HTML lesson plan for classroom delivery using a formal instructional tone.
 
 Requirements:
-- Output valid, self-contained HTML only (no markdown, no JSON).
-- Include the following structure exactly as described.
+- Output valid, self-contained HTML only (no markdown, no code fences).
+- Include ALL sections exactly as structured below.
 
 ------------------------------------------------------------
 <h2>Lesson Plan</h2>
@@ -89,7 +89,7 @@ Requirements:
 ------------------------------------------------------------
 <h3>1. Lesson Objectives</h3>
 <ul>
-<li>List at least 3 measurable, CEFR-aligned objectives using action verbs (e.g., identify, describe, produce).</li>
+<li>At least 3 measurable objectives aligned with CEFR outcomes.</li>
 </ul>
 
 ------------------------------------------------------------
@@ -98,18 +98,18 @@ Requirements:
 <tr style="background:#e0e7ff;font-weight:bold;text-align:left">
 <th>Stage</th><th>Duration</th><th>Objective/Skill</th><th>Activities</th><th>Teacher Role</th><th>Learner Role</th><th>Materials</th>
 </tr>
-<tr><td>Warm-Up</td><td>5–10 min</td><td>Activate prior knowledge</td><td>Brief discussion or brainstorming.</td><td>Facilitates, elicits ideas.</td><td>Responds and participates actively.</td><td>Board, visuals.</td></tr>
-<tr><td>Presentation</td><td>10 min</td><td>Introduce key language points.</td><td>Model target vocabulary and grammar.</td><td>Explains, demonstrates, checks understanding.</td><td>Listens and takes notes.</td><td>Board, projector.</td></tr>
-<tr><td>Practice (Controlled)</td><td>10 min</td><td>Reinforce understanding through repetition.</td><td>Sentence gap-fill, matching or drill tasks.</td><td>Monitors, provides correction.</td><td>Practices accurately in pairs.</td><td>Worksheets, flashcards.</td></tr>
-<tr><td>Production (Freer)</td><td>10 min</td><td>Apply target language creatively.</td><td>Role-play or open discussion.</td><td>Facilitates and observes.</td><td>Uses new language spontaneously.</td><td>Real-life prompts.</td></tr>
-<tr><td>Review & Wrap-Up</td><td>5 min</td><td>Summarize and reflect.</td><td>Recap lesson and assign homework.</td><td>Highlights key takeaways.</td><td>Reflects and asks questions.</td><td>Notebook, homework sheet.</td></tr>
+<tr><td>Warm-Up</td><td>5–10 min</td><td>Activate prior knowledge.</td><td>Quick discussion or brainstorming.</td><td>Facilitates, elicits responses.</td><td>Responds, shares ideas.</td><td>Board, visuals.</td></tr>
+<tr><td>Presentation</td><td>10 min</td><td>Introduce target language.</td><td>Demonstrate grammar or vocabulary use in context.</td><td>Explains, models, checks understanding.</td><td>Listens and takes notes.</td><td>Projector, whiteboard.</td></tr>
+<tr><td>Practice (Controlled)</td><td>10 min</td><td>Reinforce comprehension.</td><td>Pair or group structured exercises.</td><td>Monitors, corrects errors.</td><td>Completes tasks accurately.</td><td>Worksheets.</td></tr>
+<tr><td>Production (Freer)</td><td>10 min</td><td>Apply language creatively.</td><td>Role-play or group presentation.</td><td>Guides, observes, supports.</td><td>Uses target language independently.</td><td>Real-life prompts.</td></tr>
+<tr><td>Review & Wrap-Up</td><td>5 min</td><td>Summarize learning outcomes.</td><td>Class recap and reflection.</td><td>Summarizes key points.</td><td>Reflects, asks questions.</td><td>Notebook.</td></tr>
 </table>
 
 ------------------------------------------------------------
 <h3>3. Supporting Details</h3>
-<p><b>Purpose:</b> Explain how the lesson supports learners’ communicative competence.</p>
-<p><b>Method:</b> Mention approach (e.g., communicative, task-based).</p>
-<p><b>Expected Outcome:</b> Describe how learners will demonstrate mastery.</p>
+<p><b>Purpose:</b> Reinforce understanding and application of target skills in real contexts.</p>
+<p><b>Method:</b> Communicative and task-based learning.</p>
+<p><b>Expected Outcome:</b> Learners demonstrate measurable improvement in understanding and communication.</p>
 
 ------------------------------------------------------------
 <h3>4. Performance Domain Checklists</h3>
@@ -117,37 +117,37 @@ Requirements:
 
 <h4 style="color:#2563eb">Understanding (U)</h4>
 <ul>
-<li>Recognizes and recalls target vocabulary accurately (5–1).</li>
-<li>Interprets key instructions correctly (5–1).</li>
-<li>Identifies information in listening/reading tasks (5–1).</li>
-<li>Answers comprehension questions appropriately (5–1).</li>
-<li>Demonstrates understanding in responses (5–1).</li>
+<li>Recognizes and recalls vocabulary accurately (5–1).</li>
+<li>Follows multi-step instructions (5–1).</li>
+<li>Identifies key ideas in tasks (5–1).</li>
+<li>Answers comprehension questions (5–1).</li>
+<li>Shows clear understanding in responses (5–1).</li>
 </ul>
 
 <h4 style="color:#16a34a">Application (A)</h4>
 <ul>
-<li>Uses new grammar and vocabulary in context (5–1).</li>
-<li>Applies learned rules accurately in tasks (5–1).</li>
-<li>Adapts examples to new sentences (5–1).</li>
-<li>Connects lesson content to real-life contexts (5–1).</li>
+<li>Uses new grammar and vocabulary correctly (5–1).</li>
+<li>Applies learned structures in new contexts (5–1).</li>
+<li>Adapts examples creatively (5–1).</li>
+<li>Links concepts between lessons (5–1).</li>
 <li>Self-corrects errors effectively (5–1).</li>
 </ul>
 
 <h4 style="color:#f59e0b">Communication (C)</h4>
 <ul>
-<li>Speaks clearly and understandably (5–1).</li>
-<li>Maintains interaction in pairs or groups (5–1).</li>
+<li>Speaks clearly and fluently (5–1).</li>
+<li>Interacts confidently in tasks (5–1).</li>
 <li>Writes coherent, organized sentences (5–1).</li>
-<li>Expresses ideas fluently with few pauses (5–1).</li>
-<li>Uses appropriate tone and register (5–1).</li>
+<li>Uses accurate pronunciation and intonation (5–1).</li>
+<li>Maintains natural conversation flow (5–1).</li>
 </ul>
 
 <h4 style="color:#dc2626">Behavior (B)</h4>
 <ul>
-<li>Participates actively throughout class (5–1).</li>
-<li>Shows cooperation and teamwork (5–1).</li>
-<li>Respects time and instructions (5–1).</li>
-<li>Supports peers positively (5–1).</li>
+<li>Participates actively (5–1).</li>
+<li>Shows teamwork and cooperation (5–1).</li>
+<li>Follows class procedures (5–1).</li>
+<li>Respects time and peers (5–1).</li>
 <li>Demonstrates motivation and effort (5–1).</li>
 </ul>
 
@@ -164,9 +164,9 @@ Requirements:
 ------------------------------------------------------------
 <h3>6. Reflection (Instructor Review)</h3>
 <ul>
-<li>What activity generated the most engagement and why?</li>
-<li>Were objectives achieved? How can future lessons improve?</li>
-<li>What strategies enhanced comprehension and participation?</li>
+<li>Which activity generated the most engagement and why?</li>
+<li>Were objectives achieved based on learner performance?</li>
+<li>What improvements can enhance future delivery?</li>
 </ul>
 
 ------------------------------------------------------------
@@ -179,11 +179,10 @@ Requirements:
             model="gpt-4o-mini",
             temperature=0.4,
             messages=[
-                {"role": "system", "content": system_prompt.format(
-                    title=title, teacher=teacher, duration=duration, cefr=cefr, profile=profile, content=content
-                )}
+                {"role": "user", "content": f"Generate the following HTML structure exactly:\n\n{prompt}"}
             ],
         )
+
         html = response.choices[0].message.content.strip()
         html = re.sub(r"^```(?:html)?|```$", "", html, flags=re.MULTILINE).strip()
         html = html.replace("\\n", "\n").replace('\\"', '"')
@@ -198,7 +197,7 @@ Requirements:
 # ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "OK", "message": "Domain Lesson Planner Backend Active"})
+    return jsonify({"status": "OK", "message": "Lesson Planner Backend Active"})
 
 
 @app.post("/generate_lesson")
@@ -220,33 +219,6 @@ def generate_lesson():
                 content = file.read().decode("utf-8", errors="ignore")
 
         html_output = generate_lesson_plan_text(teacher, title, duration, cefr, profile, content)
-
-        # Optional DB save
-        if pool:
-            try:
-                conn = get_conn()
-                cur = conn.cursor()
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS lessons (
-                        id SERIAL PRIMARY KEY,
-                        teacher TEXT,
-                        title TEXT,
-                        cefr TEXT,
-                        profile TEXT,
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        html TEXT
-                    );
-                """)
-                cur.execute(
-                    "INSERT INTO lessons (teacher, title, cefr, profile, html) VALUES (%s, %s, %s, %s, %s);",
-                    (teacher, title, cefr, profile, html_output),
-                )
-                conn.commit()
-                cur.close()
-                put_conn(conn)
-            except Exception as e:
-                logging.warning(f"DB insert failed: {e}")
-
         return jsonify({"status": "success", "html": html_output})
 
     except Exception as e:
@@ -256,12 +228,10 @@ def generate_lesson():
 
 @app.post("/download_pdf")
 def download_pdf():
-    """Generate and return PDF of lesson HTML."""
     try:
         html_content = request.form.get("html", "")
         if not html_content:
             return jsonify({"error": "No HTML content provided"}), 400
-
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
         styles = getSampleStyleSheet()
@@ -269,96 +239,16 @@ def download_pdf():
         story.append(Paragraph(html_content.replace("\n", "<br/>"), styles["BodyText"]))
         doc.build(story)
         buffer.seek(0)
-        return send_file(
-            buffer,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name=f"lesson_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-        )
+        return send_file(buffer, mimetype="application/pdf", as_attachment=True,
+                         download_name=f"lesson_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
     except Exception as e:
         logging.error(f"PDF generation failed: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 # ------------------------------------------------------------
-# PERFORMANCE ROUTES
-# ------------------------------------------------------------
-@app.post("/save_performance")
-def save_perf():
-    if not pool:
-        return jsonify({"error": "Database not configured."}), 503
-    try:
-        data = request.get_json(force=True)
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS performance_records (
-                id SERIAL PRIMARY KEY,
-                lesson_id TEXT,
-                learner_id TEXT,
-                understanding FLOAT,
-                application FLOAT,
-                communication FLOAT,
-                behavior FLOAT,
-                total FLOAT,
-                timestamp TIMESTAMP DEFAULT NOW()
-            );
-        """)
-        for r in data:
-            lid = r.get("lesson_id")
-            rid = r.get("learner_id")
-            if not lid or not rid:
-                continue
-            u,a,c,b = [safe_float(r.get(k)) for k in ("understanding","application","communication","behavior")]
-            total = compute_total(u,a,c,b)
-            cur.execute("""
-                INSERT INTO performance_records
-                (lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-            """, (lid,rid,u,a,c,b,total,datetime.now()))
-        conn.commit()
-        cur.close()
-        put_conn(conn)
-        return jsonify({"message": f"{len(data)} records saved successfully."})
-    except Exception as e:
-        logging.exception(e)
-        return jsonify({"error": str(e)}), 500
-
-
-@app.get("/fetch_data")
-def fetch_data():
-    if not pool:
-        return jsonify({"error": "Database not configured."}), 503
-    try:
-        lid=request.args.get("learner_id","")
-        fromd=request.args.get("from","")
-        tod=request.args.get("to","")
-        q="SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp FROM performance_records WHERE 1=1"
-        vals=[]
-        if lid:
-            q+=" AND learner_id ILIKE %s"; vals.append(f"%{lid}%")
-        if fromd:
-            q+=" AND timestamp >= %s"; vals.append(fromd)
-        if tod:
-            q+=" AND timestamp <= %s"; vals.append(tod)
-        q+=" ORDER BY timestamp DESC LIMIT 1000"
-        conn=get_conn(); cur=conn.cursor(); cur.execute(q,tuple(vals))
-        rows=cur.fetchall(); cur.close(); put_conn(conn)
-        data=[{
-            "lesson_id":r[0],"learner_id":r[1],
-            "understanding":r[2],"application":r[3],
-            "communication":r[4],"behavior":r[5],
-            "total":r[6],"timestamp":r[7].strftime("%Y-%m-%d %H:%M")
-        } for r in rows]
-        return jsonify(data)
-    except Exception as e:
-        logging.exception(e)
-        return jsonify({"error":str(e)}),500
-
-
-# ------------------------------------------------------------
 # MAIN
 # ------------------------------------------------------------
 if __name__ == "__main__":
-    PORT=int(os.environ.get("PORT",5000))
-    app.run(host="0.0.0.0",port=PORT)
+    PORT = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=PORT)
