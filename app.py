@@ -119,10 +119,6 @@ Requirements:
   <b>Each domain checklist</b> is rated <b>1–5</b> (5 = Excellent, 1 = Poor). Each domain totals <b>25 points</b>.
 </div>
 
-<p>Analyze the uploaded lesson content below and generate 5 measurable, 
-lesson-specific indicators for each domain (Understanding, Application, Communication, Behavior). 
-Make them directly relevant to the lesson content, not generic.</p>
-
 Lesson content reference:
 {content}
 
@@ -179,6 +175,9 @@ Lesson content reference:
                         "You are an expert ELT instructional designer working under BAE Systems standards. "
                         "Do not restate instructions or placeholders. "
                         "Only output fully populated HTML sections that match the requested structure."
+                        "In the Performance Domain Checklists section, generate 5 measurable, lesson-specific indicators "
+                        "for each domain (Understanding, Application, Communication, Behavior), "
+                        "based strictly on the uploaded lesson content."
                     ),
                 },
                 {
