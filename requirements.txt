@@ -4,4 +4,5 @@ openai
 psycopg2-binary
 pandas
 reportlab
+PyPDF2
 gunicorn
