@@ -1,212 +1,131 @@
-import os
-import psycopg2
-from flask import Flask, request, jsonify
-from flask_cors import CORS
+import os, logging, io
 from datetime import datetime
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+from psycopg2.pool import SimpleConnectionPool
+import pandas as pd
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
 from openai import OpenAI
 
+# --- App setup ---
 app = Flask(__name__)
-CORS(app)
-
-# --------------------- OpenAI (for lesson generator) ---------------------
+CORS(app, origins="*")
+logging.basicConfig(level=logging.INFO)
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# --------------------- Database ---------------------
-DB_URL = "postgresql://postgres:eoTlRaNGAiMEqwzsYPkzKJYWudCSRSOq@postgres.railway.internal:5432/railway"
+# --- Database ---
+DB_URL = os.getenv("DATABASE_URL")
+pool = SimpleConnectionPool(1, 10, dsn=DB_URL)
 
-def get_db():
-    return psycopg2.connect(DB_URL, sslmode="require")
+def get_conn(): return pool.getconn()
+def put_conn(c): pool.putconn(c)
 
-def init_db():
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS performance_records (
-        id SERIAL PRIMARY KEY,
-        lesson_id TEXT,
-        learner_id TEXT,
-        understanding FLOAT,
-        application FLOAT,
-        communication FLOAT,
-        behavior FLOAT,
-        total FLOAT,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
-    conn.commit()
-    cur.close()
-    conn.close()
+# --- Safe float ---
+def safe_float(v):
+    try: return float(v)
+    except: return 0.0
 
-init_db()
+def compute_total(u,a,c,b): return round(safe_float(u)+safe_float(a)+safe_float(c)+safe_float(b),2)
 
-# --------------------- Helpers ---------------------
-def safe_float(value):
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return 0.0
-
-def compute_total(u, a, c, b):
-    return round(safe_float(u) + safe_float(a) + safe_float(c) + safe_float(b), 2)
-
-# --------------------- Lesson Plan ---------------------
-@app.route("/generate_lesson", methods=["POST"])
+# --- Lesson generation ---
+@app.post("/generate_lesson")
 def generate_lesson():
     try:
-        teacher   = request.form.get("teacher", "")
-        title     = request.form.get("lesson_title", "")
-        duration  = request.form.get("duration", "")
-        cefr      = request.form.get("cefr", "")
-        profile   = request.form.get("profile", "")
-        upfile    = request.files.get("file")
-
-        content = ""
-        if upfile:
-            content = upfile.read().decode("utf-8", errors="ignore")
-
-        prompt = f"""
-You are an instructional designer at BAE Systems KSA.
-Create a professional lesson plan based on the uploaded content.
-
-Include sections:
-1) Overview (Title, Teacher, Duration, CEFR, Learner Profile)
-2) Measurable Objectives (U/A/C/B)
-3) Materials & Resources
-4) Lesson Stages (Timing | Objective | Teacher Role | Learner Role | Interaction | Procedure)
-5) Domain Checklist (Understanding, Application, Communication, Behavior — 5 criteria each)
-6) Interpretation Key
-
-Lesson Title: {title}
-Teacher: {teacher} | Duration: {duration} | CEFR: {cefr}
-Learner Profile: {profile}
-
-Source content:
-{content}
-"""
-
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini",
-            temperature=0.4,
-            messages=[
-                {"role":"system","content":"You create structured ELT lesson plans with crisp tables and measurable outcomes."},
-                {"role":"user","content":prompt}
-            ]
-        )
-
-        html = f"""
-<html><head><meta charset="utf-8">
-<style>
-body{{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;margin:40px;color:#111827;line-height:1.6}}
-h1{{color:#1e3a8a;font-size:24px;margin:0 0 4px}}
-h2{{color:#1e40af;margin-top:24px}}
-hr{{border:none;border-top:1px solid #e5e7eb;margin:16px 0}}
-table{{border-collapse:collapse;width:100%;margin:8px 0}}
-th,td{{border:1px solid #e5e7eb;padding:8px;text-align:left;font-size:14px}}
-thead th{{background:#f9fafb}}
-</style></head><body>
-<h1>{title or "Lesson Plan"}</h1>
-<div>Teacher: {teacher or "-"} &nbsp;|&nbsp; CEFR: {cefr or "-"} &nbsp;|&nbsp; Duration: {duration or "-"}</div>
-<hr/>
-{resp.choices[0].message.content.replace("\n","<br>")}
-</body></html>
-"""
-        return html, 200, {"Content-Type":"text/html"}
-
+        t=request.form.get; teacher=t("teacher",""); title=t("lesson_title","")
+        dur=t("duration",""); cefr=t("cefr",""); prof=t("profile","")
+        up=request.files.get("file"); content=up.read().decode("utf-8",errors="ignore") if up else ""
+        prompt=f"""You are an ELT designer at BAE Systems KSA. Create a structured lesson plan...
+Lesson Title:{title} Teacher:{teacher} Duration:{dur} CEFR:{cefr} Profile:{prof}
+Source:{content}"""
+        resp=client.chat.completions.create(model="gpt-4o-mini",temperature=0.4,
+            messages=[{"role":"system","content":"Create measurable ELT lesson plans with crisp tables."},
+                      {"role":"user","content":prompt}])
+        return f"<html><body>{resp.choices[0].message.content.replace('\n','<br>')}</body></html>"
     except Exception as e:
-        return f"<p style='color:red'>Error generating lesson: {e}</p>", 500
+        logging.exception(e)
+        return f"<p>Error:{e}</p>",500
 
-# --------------------- Save Performance ---------------------
-@app.route("/save_performance", methods=["POST"])
-def save_performance():
+# --- Save performance ---
+@app.post("/save_performance")
+def save_perf():
     try:
-        data = request.get_json(force=True)
-        if not isinstance(data, list):
-            return jsonify({"error": "Expected a list of performance records"}), 400
-
-        conn = get_db()
-        cur = conn.cursor()
-
+        data=request.get_json(force=True)
+        conn=get_conn(); cur=conn.cursor()
         for r in data:
-            u = safe_float(r.get("understanding"))
-            a = safe_float(r.get("application"))
-            c = safe_float(r.get("communication"))
-            b = safe_float(r.get("behavior"))
-            total = compute_total(u, a, c, b)  # server-side truth
-
-            cur.execute("""
-                INSERT INTO performance_records
-                (lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-            """, (
-                (r.get("lesson_id") or "").strip(),
-                (r.get("learner_id") or "").strip(),
-                u, a, c, b, total, datetime.now()
-            ))
-
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"message": f"{len(data)} records saved successfully."})
-
+            u,a,c,b=[safe_float(r.get(k)) for k in ("understanding","application","communication","behavior")]
+            total=compute_total(u,a,c,b)
+            cur.execute("""INSERT INTO performance_records
+                (lesson_id,learner_id,understanding,application,communication,behavior,total,timestamp)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (r.get("lesson_id"),r.get("learner_id"),u,a,c,b,total,datetime.now()))
+        conn.commit(); cur.close(); put_conn(conn)
+        return jsonify({"message":f"{len(data)} records saved"})
     except Exception as e:
-        print("❌ save_performance error:", e)
-        return jsonify({"error": str(e)}), 500
+        logging.exception(e); return jsonify({"error":str(e)}),500
 
-# --------------------- Fetch All Data (Dashboard) ---------------------
-@app.route("/fetch_data", methods=["GET"])
+# --- Fetch data (with filters) ---
+@app.get("/fetch_data")
 def fetch_data():
     try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
-            FROM performance_records
-            ORDER BY timestamp DESC;
-        """)
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        data = [{
-            "record_id": r[0],
-            "lesson_id": r[1],
-            "learner_id": r[2] or "",
-            "understanding": r[3] or 0,
-            "application": r[4] or 0,
-            "communication": r[5] or 0,
-            "behavior": r[6] or 0,
-            "total": r[7] if r[7] is not None else compute_total(r[3], r[4], r[5], r[6]),
-            "timestamp": r[8].strftime("%Y-%m-%d %H:%M")
-        } for r in rows]
-
+        lid=request.args.get("learner_id","")
+        fromd=request.args.get("from",""); tod=request.args.get("to","")
+        q="SELECT lesson_id,learner_id,understanding,application,communication,behavior,total,timestamp FROM performance_records WHERE 1=1"
+        vals=[]
+        if lid: q+=" AND learner_id ILIKE %s"; vals.append(f"%{lid}%")
+        if fromd: q+=" AND timestamp >= %s"; vals.append(fromd)
+        if tod: q+=" AND timestamp <= %s"; vals.append(tod)
+        q+=" ORDER BY timestamp DESC"
+        conn=get_conn(); cur=conn.cursor(); cur.execute(q,tuple(vals)); rows=cur.fetchall()
+        data=[{"lesson_id":r[0],"learner_id":r[1],"understanding":r[2],"application":r[3],
+               "communication":r[4],"behavior":r[5],"total":r[6],"timestamp":r[7].strftime("%Y-%m-%d %H:%M")} for r in rows]
+        cur.close(); put_conn(conn)
         return jsonify(data)
     except Exception as e:
-        print("❌ fetch_data error:", e)
-        return jsonify({"error": str(e)}), 500
+        logging.exception(e); return jsonify({"error":str(e)}),500
 
-# --------------------- Maintenance: Recalculate Totals ---------------------
-@app.route("/recalculate_totals", methods=["POST"])
-def recalc_totals():
+# --- Export Excel ---
+@app.get("/export_excel")
+def export_excel():
     try:
-        conn = get_db()
-        cur = conn.cursor()
-        cur.execute("""
-        UPDATE performance_records
-        SET total = COALESCE(understanding,0) + COALESCE(application,0) +
-                    COALESCE(communication,0) + COALESCE(behavior,0)
-        WHERE total IS NULL
-           OR total <> COALESCE(understanding,0) + COALESCE(application,0)
-                     + COALESCE(communication,0) + COALESCE(behavior,0);
-        """)
-        updated = cur.rowcount
-        conn.commit()
-        cur.close()
-        conn.close()
-        return jsonify({"message": f"Recalculated totals for {updated} rows."})
+        conn=get_conn()
+        df=pd.read_sql("SELECT * FROM performance_records ORDER BY timestamp DESC",conn)
+        put_conn(conn)
+        output=io.BytesIO()
+        df.to_excel(output,index=False)
+        output.seek(0)
+        return send_file(output,as_attachment=True,download_name="records.xlsx")
     except Exception as e:
-        print("❌ recalc_totals error:", e)
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error":str(e)}),500
 
-# --------------------- Run ---------------------
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
+# --- Export PDF ---
+@app.get("/export_pdf")
+def export_pdf():
+    try:
+        conn=get_conn()
+        cur=conn.cursor(); cur.execute("SELECT learner_id,total,timestamp FROM performance_records ORDER BY timestamp DESC LIMIT 100")
+        rows=cur.fetchall(); cur.close(); put_conn(conn)
+        buf=io.BytesIO()
+        doc=SimpleDocTemplate(buf,pagesize=A4)
+        styles=getSampleStyleSheet()
+        data=[["Learner","Total","Date"]]+[[r[0],r[1],r[2].strftime("%Y-%m-%d")] for r in rows]
+        elems=[Paragraph("Performance Report",styles["Title"]),Spacer(1,12),Table(data)]
+        doc.build(elems)
+        buf.seek(0)
+        return send_file(buf,as_attachment=True,download_name="report.pdf")
+    except Exception as e:
+        return jsonify({"error":str(e)}),500
+
+# --- Backup (CSV) ---
+@app.get("/backup_db")
+def backup_db():
+    conn=get_conn()
+    df=pd.read_sql("SELECT * FROM performance_records",conn)
+    put_conn(conn)
+    path="/tmp/backup.csv"
+    df.to_csv(path,index=False)
+    return send_file(path,as_attachment=True)
+
+if __name__=="__main__":
+    app.run(host="0.0.0.0",port=int(os.getenv("PORT",8080)))
