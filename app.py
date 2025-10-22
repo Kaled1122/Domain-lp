@@ -163,11 +163,34 @@ Lesson content reference:
 
 """
     try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            temperature=0.4,
-            messages=[{"role": "user", "content": prompt}],
-        )
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        temperature=0.4,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "You are an expert ELT instructional designer working under BAE Systems standards. "
+                    "Do not restate instructions or placeholders. "
+                    "Only output fully populated HTML sections that match the requested structure."
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Generate the following HTML structure exactly, filling all fields with relevant content derived from the uploaded lesson:\n\n{prompt}"
+            },
+        ],
+    )
+
+    html = response.choices[0].message.content.strip()
+    html = re.sub(r"^```(?:html)?|```$", "", html, flags=re.MULTILINE).strip()
+    html = html.replace("\\n", "\n").replace('\\"', '"')
+    return html
+
+except Exception as e:
+    logging.error(f"AI generation failed: {e}")
+    return f"<p style='color:red'>AI generation failed: {e}</p>"
+
 
         html = response.choices[0].message.content.strip()
         html = re.sub(r"^```(?:html)?|```$", "", html, flags=re.MULTILINE).strip()
