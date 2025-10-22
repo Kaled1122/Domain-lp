@@ -161,8 +161,6 @@ Requirements:
 <li>What improvements can enhance future delivery?</li>
 </ul>
 
-------------------------------------------------------------
-<h3>7. Reference Source</h3>
 <p>{content}</p>
 """
     try:
