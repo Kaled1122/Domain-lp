@@ -105,7 +105,9 @@ Requirements:
 
 ------------------------------------------------------------
 <h3>4. Performance Domain Checklists</h3>
-<p>Each domain is rated 1–5 (5=Excellent, 1=Poor). Each domain totals 25 points.</p>
+<div style="background:#f9fafb;border-left:4px solid #2563eb;padding:10px;margin:10px 0;">
+  <b>Each domain checklist</b> is rated <b>1–5</b> (5 = Excellent, 1 = Poor). Each domain totals <b>25 points</b>.
+</div>
 
 <p>Analyze the uploaded lesson content below and generate 5 measurable, 
 lesson-specific indicators for each domain (Understanding, Application, Communication, Behavior). 
