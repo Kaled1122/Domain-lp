@@ -70,7 +70,6 @@ Requirements:
 - Output valid HTML (no markdown, no code fences).
 - Include ALL sections as shown below.
 
-------------------------------------------------------------
 <h2>Lesson Plan</h2>
 <b>Title:</b> {title}<br>
 <b>Teacher:</b> {teacher}<br>
@@ -78,13 +77,13 @@ Requirements:
 <b>CEFR Level:</b> {cefr}<br>
 <b>Learner Profile:</b> {profile}<br>
 
-------------------------------------------------------------
+
 <h3>1. Lesson Objectives</h3>
 <ul>
 <li>At least 3 measurable objectives aligned with CEFR outcomes.</li>
 </ul>
 
-------------------------------------------------------------
+
 <h3>2. Lesson Plan Structure</h3>
 <table cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%">
 <tr style="background:#e0e7ff;font-weight:bold;text-align:left">
@@ -97,7 +96,6 @@ Requirements:
 <tr><td>Review & Wrap-Up</td><td>5 min</td><td>Summarize learning outcomes.</td><td>Class recap and reflection.</td><td>Summarizes key points.</td><td>Reflects, asks questions.</td><td>Notebook.</td></tr>
 </table>
 
-------------------------------------------------------------
 <h3>3. Supporting Details</h3>
 <table cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%">
 <tr style="background:#e0e7ff;font-weight:bold;text-align:left">
@@ -113,7 +111,6 @@ Requirements:
 <tr><td>Review & Wrap-Up</td><td>...</td><td>...</td><td>...</td></tr>
 </table>
 
-------------------------------------------------------------
 <h3>4. Performance Domain Checklists</h3>
 <div style="background:#f9fafb;border-left:4px solid #2563eb;padding:10px;margin:10px 0;">
   <b>Each domain checklist</b> is rated <b>1–5</b> (5 = Excellent, 1 = Poor). Each domain totals <b>25 points</b>.
@@ -146,7 +143,6 @@ Lesson content reference:
 <li>...</li>
 </ul>
 
-------------------------------------------------------------
 <h3>5. Score Interpretation Key</h3>
 <table cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:50%">
 <tr style="background:#059669;color:white;font-weight:bold;text-align:center"><th>Score Range</th><th>Performance Level</th></tr>
@@ -156,8 +152,6 @@ Lesson content reference:
 <tr><td style="text-align:center">0–49</td><td>Needs Improvement</td></tr>
 </table>
 
-------------------------------------------------------------
-------------------------------------------------------------
 <h3>6. Reflection (Instructor Review)</h3>
 <ul>
 <!-- The model will generate three context-specific reflection questions below -->
