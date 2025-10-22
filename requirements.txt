@@ -2,5 +2,6 @@ flask
 flask-cors
 openai
 psycopg2-binary
+pandas
+reportlab
 gunicorn
-PyPDF2
