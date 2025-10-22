@@ -264,8 +264,13 @@ def fetch_data():
         if not pool:
             return jsonify([])
 
+        learner_id = request.args.get("learner_id")
+        from_date = request.args.get("from")
+        to_date = request.args.get("to")
+
         conn = pool.getconn()
         cur = conn.cursor()
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS performance_data (
                 id SERIAL PRIMARY KEY,
@@ -279,7 +284,25 @@ def fetch_data():
                 timestamp TIMESTAMP DEFAULT NOW()
             );
         """)
-        cur.execute("SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp FROM performance_data ORDER BY timestamp DESC;")
+
+        # dynamic filters
+        query = """
+            SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
+            FROM performance_data WHERE 1=1
+        """
+        params = []
+        if learner_id:
+            query += " AND learner_id = %s"
+            params.append(learner_id)
+        if from_date:
+            query += " AND timestamp >= %s"
+            params.append(from_date)
+        if to_date:
+            query += " AND timestamp <= %s"
+            params.append(to_date)
+        query += " ORDER BY timestamp DESC;"
+
+        cur.execute(query, tuple(params))
         rows = cur.fetchall()
         pool.putconn(conn)
 
@@ -297,9 +320,11 @@ def fetch_data():
             for r in rows
         ]
         return jsonify(data)
+
     except Exception as e:
         logging.error(f"Fetch data failed: {e}")
         return jsonify([])
+
 
 
 @app.post("/save_performance")
