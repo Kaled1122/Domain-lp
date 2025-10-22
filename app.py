@@ -161,7 +161,6 @@ Requirements:
 <li>What improvements can enhance future delivery?</li>
 </ul>
 
-<p>{content}</p>
 """
     try:
         response = client.chat.completions.create(
