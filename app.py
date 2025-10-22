@@ -152,10 +152,11 @@ Lesson content reference:
 
 ------------------------------------------------------------
 <h3>6. Reflection (Instructor Review)</h3>
+<p>Reflect on how effectively the lesson was delivered and how students engaged with its core objectives.</p>
 <ul>
-<li>Which activity generated the most engagement and why?</li>
-<li>Were objectives achieved based on learner performance?</li>
-<li>What improvements can enhance future delivery?</li>
+<li>Which stage of this lesson (e.g., Warm-Up, Practice, or Production) generated the most learner engagement during <b>{title}</b> and why?</li>
+<li>To what extent did learners demonstrate the expected outcomes based on the objectives of <b>{title}</b>?</li>
+<li>What specific adjustments or strategies could improve delivery of this lesson in future sessions (materials, timing, instructions, or grouping)?</li>
 </ul>
 
 """
