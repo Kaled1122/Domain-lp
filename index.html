@@ -1,234 +1,208 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>BAE Systems — Training Suite</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAE Training Suite 2025</title>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
 <style>
-body {
-  font-family: "Inter", sans-serif;
-  background-color: #f5f6f7;
-  color: #1f2937;
-}
-h1 { font-size: 2rem; font-weight: 700; color: #1e3a8a; }
-h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem; color: #1e3a8a; }
-.card {
-  background: #fff;
-  border-radius: 0.75rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  padding: 2rem;
-  margin-bottom: 2rem;
-}
-nav button {
-  padding: 10px 24px;
-  border-radius: 6px;
-  margin: 0 4px;
-  font-weight: 500;
-  background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  transition: all 0.2s;
-}
-nav button:hover { background-color: #e5e7eb; }
-.active { background-color: #1e3a8a !important; color: white !important; border-color: #1e3a8a; }
-table { border-collapse: collapse; width: 100%; }
-th, td { border: 1px solid #e5e7eb; padding: 10px; text-align: center; font-size: 0.875rem; }
-thead th { background-color: #f9fafb; font-weight: 600; position: sticky; top: 0; z-index: 10; }
-tr:nth-child(even) { background-color: #f9fafb; }
-tr:hover { background-color: #e0e7ff; }
-input, select {
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 6px 8px;
-  width: 100%;
-}
-button { transition: transform 0.1s ease-in-out; }
-button:active { transform: scale(0.97); }
-.btn-primary { background-color: #1e3a8a; color: white; font-weight: 600; }
-.btn-primary:hover { background-color: #1d4ed8; }
-.btn-success { background-color: #047857; color: white; }
-.btn-success:hover { background-color: #059669; }
-footer { text-align: center; font-size: 0.8rem; color: #6b7280; margin-top: 2rem; }
+body{font-family:"Inter",sans-serif;background:#f5f6f7;color:#1f2937}
+nav button{padding:10px 24px;border-radius:6px;margin:0 4px;font-weight:500;background:#f3f4f6;border:1px solid #e5e7eb;transition:.2s}
+nav button:hover{background:#e5e7eb}
+.active{background:#1e3a8a!important;color:#fff!important;border-color:#1e3a8a}
+.card{background:#fff;border-radius:.75rem;box-shadow:0 2px 12px rgba(0,0,0,.06);padding:2rem;margin-bottom:2rem}
 </style>
 </head>
 <body class="p-6">
-
 <header class="text-center mb-8">
-  <h1>BAE Systems — Training Suite</h1>
-  <p class="text-gray-600 mt-1">Lesson Planning • Performance Register • Dashboard</p>
+<h1 class="text-3xl font-extrabold text-indigo-900">BAE Systems — Training Suite 2025</h1>
+<p class="text-gray-600 mt-1">Lesson Planning • Performance Register • Dashboard Analytics</p>
 </header>
 
 <nav class="flex justify-center mb-8 border-b pb-3">
-  <button onclick="showTab('lesson')" id="btn-lesson" class="active">Lesson Plan</button>
-  <button onclick="showTab('register')" id="btn-register">Performance Register</button>
-  <button onclick="showTab('dashboard')" id="btn-dashboard">Dashboard</button>
+<button id="btn-lesson" onclick="showTab('lesson')" class="active">Lesson Plan</button>
+<button id="btn-register" onclick="showTab('register')">Performance Register</button>
+<button id="btn-dashboard" onclick="showTab('dashboard')">Dashboard</button>
 </nav>
 
 <!-- LESSON PLAN -->
 <section id="lesson" class="card">
-  <h2>Lesson Plan Generator</h2>
-  <form id="lessonForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-    <input type="text" name="teacher" placeholder="Teacher Name" />
-    <input type="text" name="lesson_title" placeholder="Lesson Title" />
-    <input type="text" name="duration" placeholder="Duration (e.g. 45 minutes)" />
-    <input type="text" name="cefr" placeholder="CEFR Level" />
-    <input type="text" name="profile" placeholder="Learner Profile" />
-    <input type="file" name="file" accept=".pdf,.txt" class="col-span-2 border p-2 bg-gray-50" />
-    <button type="submit" class="col-span-2 btn-primary py-2 rounded-md">
-      Generate Lesson Plan
-    </button>
-  </form>
-
-  <iframe id="lessonOutput" class="w-full h-[550px] border rounded-md"></iframe>
-
-  <div class="mt-4 text-right">
-    <button id="downloadLesson" class="btn-success px-5 py-2 rounded-md">Download Lesson (PDF)</button>
-  </div>
+<h2 class="text-xl font-semibold text-indigo-800 mb-4">Lesson Plan Generator</h2>
+<form id="lessonForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+<input type="text" name="teacher" placeholder="Teacher Name" required>
+<input type="text" name="lesson_title" placeholder="Lesson Title" required>
+<input type="text" name="duration" placeholder="Duration (e.g. 45 minutes)">
+<input type="text" name="cefr" placeholder="CEFR Level">
+<input type="text" name="profile" placeholder="Learner Profile">
+<input type="file" name="file" accept=".pdf,.txt" class="col-span-2 border p-2 bg-gray-50">
+<button type="submit" class="col-span-2 btn-primary py-2 rounded-md bg-indigo-700 text-white font-semibold hover:bg-indigo-800">
+Generate Lesson Plan
+</button>
+</form>
+<iframe id="lessonOutput" class="w-full h-[550px] border rounded-md"></iframe>
+<div class="mt-4 text-right">
+<button id="downloadLesson" class="px-5 py-2 rounded-md bg-green-700 text-white hover:bg-green-800">Download Lesson (PDF)</button>
+</div>
 </section>
 
 <!-- REGISTER -->
 <section id="register" class="card hidden">
-  <div class="flex justify-between items-center mb-4">
-    <h2>Performance Register</h2>
-    <div class="flex gap-3 items-center">
-      <input type="number" id="numLearners" min="1" max="50" value="16" class="border px-3 py-1 w-24 text-center" />
-      <button onclick="buildTable()" class="btn-primary px-4 py-2 rounded-md">Create</button>
-      <button onclick="saveData()" class="btn-success px-4 py-2 rounded-md">Save</button>
-    </div>
-  </div>
-
-  <div class="overflow-x-auto">
-    <table id="regTable">
-      <thead>
-        <tr>
-          <th>Learner ID</th><th>Understanding</th><th>Application</th><th>Communication</th><th>Behavior</th><th>Total</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-xl font-semibold text-indigo-800">Performance Register</h2>
+<div class="flex gap-3 items-center">
+<input type="number" id="numLearners" min="1" max="50" value="16" class="border px-3 py-1 w-24 text-center">
+<button onclick="buildTable()" class="bg-indigo-700 text-white px-4 py-2 rounded-md">Create</button>
+<button onclick="saveData()" class="bg-green-700 text-white px-4 py-2 rounded-md">Save</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table id="regTable" class="w-full">
+<thead><tr><th>Learner ID</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Total</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
 </section>
 
 <!-- DASHBOARD -->
 <section id="dashboard" class="card hidden">
-  <div class="flex justify-between items-center mb-4">
-    <h2>Performance Dashboard</h2>
-    <div class="flex gap-3">
-      <button onclick="loadDashboard()" class="btn-primary px-4 py-2 rounded-md">Load Data</button>
-      <button onclick="downloadExcel('dataTable')" class="btn-success px-4 py-2 rounded-md">Export Excel</button>
-    </div>
-  </div>
-  <div class="overflow-x-auto">
-    <table id="dataTable">
-      <thead>
-        <tr><th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Total</th><th>Date</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
+<div class="flex justify-between items-center mb-4 flex-wrap gap-3">
+<h2 class="text-xl font-semibold text-indigo-800">Performance Dashboard</h2>
+<div class="flex gap-2 flex-wrap items-center">
+<input id="filterLearner" type="text" placeholder="Learner ID" class="border px-2 py-1">
+<input id="fromDate" type="date" class="border px-2 py-1">
+<input id="toDate" type="date" class="border px-2 py-1">
+<button onclick="applyFilters()" class="bg-indigo-700 text-white px-3 py-1 rounded">Filter</button>
+<button onclick="resetFilters()" class="bg-gray-400 text-white px-3 py-1 rounded">Clear</button>
+<button onclick="loadDashboard()" class="bg-indigo-800 text-white px-3 py-1 rounded">Refresh</button>
+<button onclick="downloadExcel('dataTable')" class="bg-green-700 text-white px-3 py-1 rounded">Excel</button>
+<button onclick="downloadPDF()" class="bg-red-700 text-white px-3 py-1 rounded">PDF</button>
+</div>
+</div>
+
+<!-- Summary + Charts -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4" id="summaryCards"></div>
+<canvas id="avgChart" height="120"></canvas>
+
+<div class="overflow-x-auto mt-6">
+<table id="dataTable" class="w-full">
+<thead><tr><th>Learner</th><th>U</th><th>A</th><th>C</th><th>B</th><th>Total</th><th>Date</th></tr></thead>
+<tbody></tbody>
+</table>
+</div>
 </section>
 
-<footer>
-  © 2025 BAE Systems Saudi Development & Training — Internal Use Only
+<footer class="text-center text-gray-500 mt-6 text-sm">
+© 2025 BAE Systems Saudi Development & Training — Internal Use Only
 </footer>
 
 <script>
-const backend = "https://domain-lp-production.up.railway.app";
+const backend="https://your-railway-app.up.railway.app";
 
-function showTab(tab) {
-  ["lesson","register","dashboard"].forEach(t=>{
-    document.getElementById(t).classList.add("hidden");
-    document.getElementById("btn-"+t).classList.remove("active");
-  });
-  document.getElementById(tab).classList.remove("hidden");
-  document.getElementById("btn-"+tab).classList.add("active");
+function showTab(t){["lesson","register","dashboard"].forEach(x=>{
+document.getElementById(x).classList.add("hidden");
+document.getElementById("btn-"+x).classList.remove("active");
+});
+document.getElementById(t).classList.remove("hidden");
+document.getElementById("btn-"+t).classList.add("active");
 }
 
-function buildTable() {
-  const num = parseInt(document.getElementById("numLearners").value) || 16;
-  const tb = document.querySelector("#regTable tbody");
-  tb.innerHTML = "";
-  for(let i=1;i<=num;i++){
-    tb.innerHTML += `<tr>
-      <td><input value="" class="border p-1 w-24 text-center" placeholder="ID"></td>
-      <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
-      <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
-      <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
-      <td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>
-      <td><input readonly class="border p-1 w-20 bg-gray-100 text-center font-semibold"></td>
-    </tr>`;
-  }
-  document.querySelectorAll("#regTable input").forEach(i=>{
-    i.oninput=()=>{
-      const r=i.closest("tr").querySelectorAll("input");
-      r[5].value=(+r[1].value||0)+(+r[2].value||0)+(+r[3].value||0)+(+r[4].value||0);
-    };
-  });
+function buildTable(){
+const n=+document.getElementById("numLearners").value||16;
+const tb=document.querySelector("#regTable tbody");tb.innerHTML="";
+for(let i=1;i<=n;i++){
+tb.innerHTML+=`<tr>
+<td><input placeholder="ID" class="border p-1 w-24 text-center"></td>
+${Array(4).fill('<td><input type="number" min=0 max=25 class="border p-1 w-20 text-center"></td>').join("")}
+<td><input readonly class="border p-1 w-20 bg-gray-100 text-center font-semibold"></td></tr>`;
+}
+document.querySelectorAll("#regTable input").forEach(i=>{
+i.oninput=()=>{
+const r=i.closest("tr").querySelectorAll("input");
+r[5].value=(+r[1].value||0)+(+r[2].value||0)+(+r[3].value||0)+(+r[4].value||0);
+};
+});
 }
 
 async function saveData(){
-  const rows=[...document.querySelectorAll("#regTable tbody tr")].map(r=>{
-    const c=r.querySelectorAll("input");
-    return{lesson_id:"T1",learner_id:c[0].value,
-    understanding:c[1].value,application:c[2].value,communication:c[3].value,
-    behavior:c[4].value,total:c[5].value};
-  });
-  const res=await fetch(`${backend}/save_performance`,{
-    method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rows)
-  });
-  alert((await res.json()).message||"Saved");
+const rows=[...document.querySelectorAll("#regTable tbody tr")].map(r=>{
+const c=r.querySelectorAll("input");
+return{lesson_id:"T1",learner_id:c[0].value,understanding:c[1].value,application:c[2].value,communication:c[3].value,behavior:c[4].value,total:c[5].value};
+});
+const res=await fetch(`${backend}/save_performance`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(rows)});
+Swal.fire("Saved", (await res.json()).message||"Saved","success");
 }
 
-function band(t){
-  t = Number(t) || 0;
-  if(t>=90)return"bg-green-100";
-  if(t>=75)return"bg-yellow-100";
-  if(t>=60)return"bg-orange-100";
-  if(t>=40)return"bg-red-100";
-  return"bg-gray-100";
+async function loadDashboard(filters={}){
+let url=`${backend}/fetch_data`;
+const params=[];
+if(filters.id)params.push(`learner_id=${filters.id}`);
+if(filters.from)params.push(`from=${filters.from}`);
+if(filters.to)params.push(`to=${filters.to}`);
+if(params.length)url+=`?${params.join("&")}`;
+const res=await fetch(url);
+const data=await res.json();
+renderDashboard(data);
 }
 
-async function loadDashboard(){
-  const res=await fetch(`${backend}/fetch_data`);
-  const data=await res.json();
-  const tb=document.querySelector("#dataTable tbody");
-  tb.innerHTML="";
-  data.forEach(r=>{
-    tb.innerHTML+=`<tr class="${band(r.total)}">
-    <td>${r.learner_id||""}</td>
-    <td>${r.understanding??0}</td>
-    <td>${r.application??0}</td>
-    <td>${r.communication??0}</td>
-    <td>${r.behavior??0}</td>
-    <td class="font-semibold">${r.total??0}</td>
-    <td>${r.timestamp||""}</td></tr>`;
-  });
+function bandColor(t){t=+t||0;
+if(t>=90)return"bg-green-100";if(t>=75)return"bg-yellow-100";
+if(t>=60)return"bg-orange-100";if(t>=40)return"bg-red-100";return"bg-gray-100";}
+
+function renderDashboard(data){
+const tb=document.querySelector("#dataTable tbody");tb.innerHTML="";
+let u=0,a=0,c=0,b=0;
+data.forEach(r=>{
+tb.innerHTML+=`<tr class="${bandColor(r.total)}"><td>${r.learner_id}</td>
+<td>${r.understanding}</td><td>${r.application}</td><td>${r.communication}</td><td>${r.behavior}</td>
+<td class="font-semibold">${r.total}</td><td>${r.timestamp}</td></tr>`;
+u+=r.understanding;a+=r.application;c+=r.communication;b+=r.behavior;
+});
+if(data.length){
+const avg={u:u/data.length,a:a/data.length,c:c/data.length,b:b/data.length};
+document.getElementById("summaryCards").innerHTML=
+Object.entries(avg).map(([k,v])=>`<div class="p-3 rounded shadow text-center bg-indigo-50"><p class="text-sm text-gray-500 uppercase">${k}</p><p class="text-2xl font-bold">${v.toFixed(1)}</p></div>`).join("");
+if(window.avgChartObj)window.avgChartObj.destroy();
+const ctx=document.getElementById("avgChart").getContext("2d");
+window.avgChartObj=new Chart(ctx,{type:"bar",data:{labels:["U","A","C","B"],datasets:[{data:[avg.u,avg.a,avg.c,avg.b],backgroundColor:["#22c55e","#3b82f6","#f97316","#e11d48"]}]},options:{plugins:{legend:{display:false}}}});
 }
+}
+
+function applyFilters(){
+const id=document.getElementById("filterLearner").value.trim();
+const from=document.getElementById("fromDate").value;
+const to=document.getElementById("toDate").value;
+loadDashboard({id,from,to});
+}
+function resetFilters(){document.getElementById("filterLearner").value="";document.getElementById("fromDate").value="";document.getElementById("toDate").value="";loadDashboard();}
 
 function downloadExcel(id){
-  let csv='';document.querySelectorAll(`#${id} tr`).forEach(r=>{
-    const cols=[...r.querySelectorAll("td,th")].map(c=>c.innerText.replace(/,/g,";"));
-    csv+=cols.join(",")+"\n";
-  });
-  const blob=new Blob([csv],{type:"text/csv"});
-  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="data.csv";a.click();
+let csv='';document.querySelectorAll(`#${id} tr`).forEach(r=>{
+const cols=[...r.querySelectorAll("td,th")].map(c=>c.innerText.replace(/,/g,";"));
+csv+=cols.join(",")+"\n";});
+const blob=new Blob([csv],{type:"text/csv"});
+const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="data.csv";a.click();
 }
 
-// LESSON PLAN
+function downloadPDF(){
+const element=document.getElementById("dashboard");
+html2pdf().from(element).set({margin:0.5,filename:"dashboard.pdf",html2canvas:{scale:2},jsPDF:{orientation:"landscape"}}).save();
+}
+
+// Lesson Plan
 document.getElementById("lessonForm").onsubmit=async e=>{
-  e.preventDefault();
-  const fd=new FormData(e.target);
-  const res=await fetch(`${backend}/generate_lesson`,{method:"POST",body:fd});
-  const html=await res.text();
-  document.getElementById("lessonOutput").srcdoc=html;
+e.preventDefault();
+Swal.showLoading();
+const fd=new FormData(e.target);
+const res=await fetch(`${backend}/generate_lesson`,{method:"POST",body:fd});
+const html=await res.text();
+document.getElementById("lessonOutput").srcdoc=html;
+Swal.close();
 };
 
-document.getElementById("downloadLesson").onclick=()=>{
-  const frame=document.getElementById("lessonOutput").contentWindow.document;
-  const blob=new Blob([frame.documentElement.outerHTML],{type:"text/html"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);a.download="lesson_plan.html";a.click();
-};
+document.getElementById("downloadLesson").onclick=()=>downloadPDF();
 </script>
 </body>
 </html>
