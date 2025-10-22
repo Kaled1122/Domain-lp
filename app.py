@@ -300,6 +300,58 @@ def fetch_data():
     except Exception as e:
         logging.error(f"Fetch data failed: {e}")
         return jsonify([])
+@app.post("/save_performance")
+def save_performance():
+    """Saves learner performance data from the frontend table."""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "No data received."})
+
+        if not pool:
+            logging.warning("⚠️ No database configured.")
+            return jsonify({"message": "Database unavailable."})
+
+        conn = pool.getconn()
+        cur = conn.cursor()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS performance_data (
+                id SERIAL PRIMARY KEY,
+                lesson_id TEXT,
+                learner_id TEXT,
+                understanding FLOAT,
+                application FLOAT,
+                communication FLOAT,
+                behavior FLOAT,
+                total FLOAT,
+                timestamp TIMESTAMP DEFAULT NOW()
+            );
+        """)
+
+        for row in data:
+            cur.execute("""
+                INSERT INTO performance_data 
+                (lesson_id, learner_id, understanding, application, communication, behavior, total)
+                VALUES (%s, %s, %s, %s, %s, %s, %s);
+            """, (
+                row.get("lesson_id"),
+                row.get("learner_id"),
+                row.get("understanding"),
+                row.get("application"),
+                row.get("communication"),
+                row.get("behavior"),
+                row.get("total"),
+            ))
+
+        conn.commit()
+        pool.putconn(conn)
+        logging.info(f"✅ Saved {len(data)} records to performance_data.")
+        return jsonify({"message": "Saved successfully."})
+
+    except Exception as e:
+        logging.error(f"Save failed: {e}")
+        return jsonify({"message": f"Error: {e}"})
 
 # ------------------------------------------------------------
 # MAIN (RAILWAY ENTRY)
