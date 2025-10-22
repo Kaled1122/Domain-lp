@@ -1,78 +1,74 @@
-import os, io, re, json, logging
+import os, io, re, logging
 from datetime import datetime
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from psycopg2.pool import SimpleConnectionPool
-import pandas as pd
 from PyPDF2 import PdfReader
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from openai import OpenAI
 
-## ------------------------------------------------------------
+# ------------------------------------------------------------
 # APP SETUP
 # ------------------------------------------------------------
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://domain-lp-five.vercel.app"}})
 logging.basicConfig(level=logging.INFO)
 
-# Load environment variable
+# Load environment variables
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
+DB_URL = os.getenv("DATABASE_URL")
+
 if not OPENAI_KEY:
-    logging.error("❌ OPENAI_API_KEY missing — please set it in Railway variables.")
+    logging.error("❌ Missing OPENAI_API_KEY — please set it in Railway environment variables.")
+if not DB_URL:
+    logging.warning("⚠️ No DATABASE_URL found — DB features disabled.")
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_KEY)
+
+# Optional DB connection pool
+pool = SimpleConnectionPool(1, 10, dsn=DB_URL) if DB_URL else None
+
 
 # ------------------------------------------------------------
 # HELPERS
 # ------------------------------------------------------------
 def get_conn():
+    """Get connection from pool (if available)."""
     if not pool:
         raise Exception("Database not configured.")
     return pool.getconn()
-
 
 def put_conn(c):
     if pool:
         pool.putconn(c)
 
-
-def safe_float(v):
-    try:
-        return float(v)
-    except:
-        return 0.0
-
-
-def compute_total(u, a, c, b):
-    return round(safe_float(u) + safe_float(a) + safe_float(c) + safe_float(b), 2)
-
-
 def extract_text_from_pdf(file):
+    """Extracts up to 5000 characters of text from uploaded PDF."""
     try:
         reader = PdfReader(file)
         text = "\n".join([p.extract_text() or "" for p in reader.pages])
-        return text[:5000]
+        return text[:5000] if text.strip() else "PDF content extracted (empty)."
     except Exception as e:
         logging.error(f"PDF extraction failed: {e}")
         return "PDF uploaded (text extraction failed)."
 
 
 # ------------------------------------------------------------
-# LESSON GENERATOR
+# LESSON PLAN GENERATOR
 # ------------------------------------------------------------
 def generate_lesson_plan_text(teacher, title, duration, cefr, profile, content):
-    """Generate structured HTML lesson plan including full domain checklist."""
+    """Generate structured HTML lesson plan including domain checklists."""
     prompt = f"""
 You are a senior English Language Teaching (ELT) instructional designer for BAE Systems.
 
-Generate a professional, fully structured HTML lesson plan for classroom delivery using a formal instructional tone.
+Generate a professional, structured HTML lesson plan for classroom delivery using a formal instructional tone.
 
 Requirements:
-- Output valid, self-contained HTML only (no markdown, no code fences).
-- Include ALL sections exactly as structured below.
+- Output valid HTML (no markdown, no code fences).
+- Include ALL sections as shown below.
 
 ------------------------------------------------------------
 <h2>Lesson Plan</h2>
@@ -169,20 +165,17 @@ Requirements:
 <h3>7. Reference Source</h3>
 <p>{content}</p>
 """
-
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             temperature=0.4,
-            messages=[
-                {"role": "user", "content": f"Generate the following HTML structure exactly:\n\n{prompt}"}
-            ],
+            messages=[{"role": "user", "content": prompt}],
         )
 
         html = response.choices[0].message.content.strip()
         html = re.sub(r"^```(?:html)?|```$", "", html, flags=re.MULTILINE).strip()
-        html = html.replace("\\n", "\n").replace('\\"', '"')
         return html
+
     except Exception as e:
         logging.error(f"AI generation failed: {e}")
         return f"<p style='color:red'>AI generation failed: {e}</p>"
@@ -209,7 +202,7 @@ def generate_lesson():
 
         content = ""
         if file:
-            if file.filename.endswith(".pdf"):
+            if file.filename.lower().endswith(".pdf"):
                 content = extract_text_from_pdf(file)
             else:
                 content = file.read().decode("utf-8", errors="ignore")
@@ -228,6 +221,7 @@ def download_pdf():
         html_content = request.form.get("html", "")
         if not html_content:
             return jsonify({"error": "No HTML content provided"}), 400
+
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4)
         styles = getSampleStyleSheet()
@@ -235,15 +229,19 @@ def download_pdf():
         story.append(Paragraph(html_content.replace("\n", "<br/>"), styles["BodyText"]))
         doc.build(story)
         buffer.seek(0)
-        return send_file(buffer, mimetype="application/pdf", as_attachment=True,
-                         download_name=f"lesson_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf")
+        return send_file(
+            buffer,
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=f"lesson_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+        )
     except Exception as e:
         logging.error(f"PDF generation failed: {e}")
         return jsonify({"error": str(e)}), 500
 
 
 # ------------------------------------------------------------
-# MAIN
+# MAIN (RAILWAY ENTRY)
 # ------------------------------------------------------------
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 5000))
