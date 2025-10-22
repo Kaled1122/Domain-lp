@@ -107,40 +107,35 @@ Requirements:
 <h3>4. Performance Domain Checklists</h3>
 <p>Each domain is rated 1–5 (5=Excellent, 1=Poor). Each domain totals 25 points.</p>
 
+<p>Analyze the uploaded lesson content below and generate 5 measurable, 
+lesson-specific indicators for each domain (Understanding, Application, Communication, Behavior). 
+Make them directly relevant to the lesson content, not generic.</p>
+
+Lesson content reference:
+{content}
+
 <h4 style="color:#2563eb">Understanding (U)</h4>
 <ul>
-<li>Recognizes and recalls vocabulary accurately (5–1).</li>
-<li>Follows multi-step instructions (5–1).</li>
-<li>Identifies key ideas in tasks (5–1).</li>
-<li>Answers comprehension questions (5–1).</li>
-<li>Shows clear understanding in responses (5–1).</li>
+<li>...</li>
+<li>...</li>
 </ul>
 
 <h4 style="color:#16a34a">Application (A)</h4>
 <ul>
-<li>Uses new grammar and vocabulary correctly (5–1).</li>
-<li>Applies learned structures in new contexts (5–1).</li>
-<li>Adapts examples creatively (5–1).</li>
-<li>Links concepts between lessons (5–1).</li>
-<li>Self-corrects errors effectively (5–1).</li>
+<li>...</li>
+<li>...</li>
 </ul>
 
 <h4 style="color:#f59e0b">Communication (C)</h4>
 <ul>
-<li>Speaks clearly and fluently (5–1).</li>
-<li>Interacts confidently in tasks (5–1).</li>
-<li>Writes coherent, organized sentences (5–1).</li>
-<li>Uses accurate pronunciation and intonation (5–1).</li>
-<li>Maintains natural conversation flow (5–1).</li>
+<li>...</li>
+<li>...</li>
 </ul>
 
 <h4 style="color:#dc2626">Behavior (B)</h4>
 <ul>
-<li>Participates actively (5–1).</li>
-<li>Shows teamwork and cooperation (5–1).</li>
-<li>Follows class procedures (5–1).</li>
-<li>Respects time and peers (5–1).</li>
-<li>Demonstrates motivation and effort (5–1).</li>
+<li>...</li>
+<li>...</li>
 </ul>
 
 ------------------------------------------------------------
