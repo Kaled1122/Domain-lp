@@ -99,8 +99,6 @@ Requirements:
 
 ------------------------------------------------------------
 <h3>3. Supporting Details</h3>
-<p>Analyze the uploaded lesson content and describe the <b>Purpose</b>, <b>Method</b>, and <b>Expected Outcome</b> in relation to each stage of the lesson (Warm-up, Presentation, Practice, Production, and Review). Make them directly connected to the uploaded lesson’s focus and skills, not generic.</p>
-
 <ul>
   <li><b>Purpose:</b> Summarize why this specific lesson topic is important for learners, linking it to its communicative or grammatical purpose.</li>
   <li><b>Method:</b> Describe the teaching method used in each stage (e.g., elicitation in Warm-up, guided discovery in Presentation, pair work in Practice, etc.) according to the lesson’s content.</li>
