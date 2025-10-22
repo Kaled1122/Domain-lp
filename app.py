@@ -151,15 +151,11 @@ Lesson content reference:
 </table>
 
 ------------------------------------------------------------
+------------------------------------------------------------
 <h3>6. Reflection (Instructor Review)</h3>
-<p>Based on the uploaded lesson content, generate three short reflection questions that help the instructor evaluate:</p>
 <ul>
-<li>learner engagement,</li>
-<li>achievement of the lesson objectives, and</li>
-<li>ways to improve future delivery.</li>
+<!-- The model will generate three context-specific reflection questions below -->
 </ul>
-<p>Ensure the questions are <b>specific to the lesson topic</b> described in the uploaded content below:</p>
-<p><i>{content[:500]}</i></p>
 
 """
     try:
