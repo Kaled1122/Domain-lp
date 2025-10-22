@@ -10,15 +10,20 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from openai import OpenAI
 
-# ------------------------------------------------------------
+## ------------------------------------------------------------
 # APP SETUP
 # ------------------------------------------------------------
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "https://domain-lp-five.vercel.app"}})
 logging.basicConfig(level=logging.INFO)
 
+# Load environment variable
 OPENAI_KEY = os.getenv("OPENAI_API_KEY")
-DB_URL = os.getenv("DATABASE_URL")
+if not OPENAI_KEY:
+    logging.error("❌ OPENAI_API_KEY missing — please set it in Railway variables.")
+
+# Initialize OpenAI client
+client = OpenAI(api_key=OPENAI_KEY)
 
 # ------------------------------------------------------------
 # HELPERS
