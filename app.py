@@ -99,11 +99,19 @@ Requirements:
 
 ------------------------------------------------------------
 <h3>3. Supporting Details</h3>
-<ul>
-  <li><b>Purpose:</b> Summarize why this specific lesson topic is important for learners, linking it to its communicative or grammatical purpose.</li>
-  <li><b>Method:</b> Describe the teaching method used in each stage (e.g., elicitation in Warm-up, guided discovery in Presentation, pair work in Practice, etc.) according to the lesson’s content.</li>
-  <li><b>Expected Outcome:</b> For each stage, describe what measurable learner performance indicates success (e.g., in Warm-up: recall key vocabulary; in Production: use the target structure independently).</li>
-</ul>
+<table cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%">
+<tr style="background:#e0e7ff;font-weight:bold;text-align:left">
+<th>Stage</th>
+<th>Purpose</th>
+<th>Method</th>
+<th>Expected Outcome</th>
+</tr>
+<tr><td>Warm-Up</td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td>Presentation</td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td>Practice (Controlled)</td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td>Production (Freer)</td><td>...</td><td>...</td><td>...</td></tr>
+<tr><td>Review & Wrap-Up</td><td>...</td><td>...</td><td>...</td></tr>
+</table>
 
 ------------------------------------------------------------
 <h3>4. Performance Domain Checklists</h3>
