@@ -258,6 +258,48 @@ def download_pdf():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/fetch_data", methods=["GET"])
+def fetch_data():
+    try:
+        if not pool:
+            return jsonify([])
+
+        conn = pool.getconn()
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS performance_data (
+                id SERIAL PRIMARY KEY,
+                lesson_id TEXT,
+                learner_id TEXT,
+                understanding FLOAT,
+                application FLOAT,
+                communication FLOAT,
+                behavior FLOAT,
+                total FLOAT,
+                timestamp TIMESTAMP DEFAULT NOW()
+            );
+        """)
+        cur.execute("SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp FROM performance_data ORDER BY timestamp DESC;")
+        rows = cur.fetchall()
+        pool.putconn(conn)
+
+        data = [
+            {
+                "lesson_id": r[0],
+                "learner_id": r[1],
+                "understanding": r[2],
+                "application": r[3],
+                "communication": r[4],
+                "behavior": r[5],
+                "total": r[6],
+                "timestamp": r[7].strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            for r in rows
+        ]
+        return jsonify(data)
+    except Exception as e:
+        logging.error(f"Fetch data failed: {e}")
+        return jsonify([])
 
 # ------------------------------------------------------------
 # MAIN (RAILWAY ENTRY)
