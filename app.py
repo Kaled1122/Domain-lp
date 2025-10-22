@@ -219,8 +219,16 @@ def download_pdf():
         if not html_content:
             return jsonify({"error": "No HTML content provided"}), 400
 
+        from reportlab.lib.units import inch
         buffer = io.BytesIO()
-        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        doc = SimpleDocTemplate(
+            buffer,
+            pagesize=A4,
+            leftMargin=0.75 * inch,
+            rightMargin=0.75 * inch,
+            topMargin=0.75 * inch,
+            bottomMargin=0.75 * inch
+        )
         styles = getSampleStyleSheet()
         story = [Paragraph("Lesson Plan", styles["Title"]), Spacer(1, 12)]
         story.append(Paragraph(html_content.replace("\n", "<br/>"), styles["BodyText"]))
@@ -235,6 +243,7 @@ def download_pdf():
     except Exception as e:
         logging.error(f"PDF generation failed: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 # ------------------------------------------------------------
