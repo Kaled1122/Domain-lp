@@ -285,7 +285,7 @@ def fetch_data():
             );
         """)
 
-        # Dynamic filters
+        # Build query dynamically
         query = """
             SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
             FROM performance_data WHERE 1=1
