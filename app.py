@@ -13,7 +13,7 @@ from openai import OpenAI
 # APP SETUP
 # ------------------------------------------------------------
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://domain-lp-five.vercel.app"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 logging.basicConfig(level=logging.INFO)
 
 # Load environment variables
