@@ -247,23 +247,25 @@ window.addEventListener("DOMContentLoaded", () => {
     a.click();
   };
 
-  window.downloadPDF = function() {
+   window.downloadPDF = function() {
     const element=document.getElementById("dashboard");
     html2pdf().from(element)
       .set({margin:0.5,filename:"dashboard.pdf",html2canvas:{scale:2},jsPDF:{orientation:"landscape"}})
       .save();
   };
-window.addEventListener("DOMContentLoaded", () => {
-  const filterBtn = document.querySelector("#dashboard button:nth-of-type(1)");
-  const clearBtn  = document.querySelector("#dashboard button:nth-of-type(2)");
-  const refreshBtn = document.querySelector("#dashboard button:nth-of-type(3)");
 
-  filterBtn.addEventListener("click", applyFilters);
-  clearBtn.addEventListener("click", resetFilters);
-  refreshBtn.addEventListener("click", () => loadDashboard());
-});
+  // Bind dashboard buttons inside the SAME DOMContentLoaded
+  const filterBtn  = document.querySelector("#dashboard button:nth-of-type(1)");
+  const clearBtn   = document.querySelector("#dashboard button:nth-of-type(2)");
+  const refreshBtn = document.querySelector("#dashboard button:nth-of-type(3)");
+  if (filterBtn && clearBtn && refreshBtn) {
+    filterBtn.addEventListener("click", window.applyFilters);
+    clearBtn.addEventListener("click", window.resetFilters);
+    refreshBtn.addEventListener("click", () => window.loadDashboard());
+  }
 
 }); // END DOMContentLoaded
+
 </script>
 </body>
 </html>
