@@ -253,6 +253,15 @@ window.addEventListener("DOMContentLoaded", () => {
       .set({margin:0.5,filename:"dashboard.pdf",html2canvas:{scale:2},jsPDF:{orientation:"landscape"}})
       .save();
   };
+window.addEventListener("DOMContentLoaded", () => {
+  const filterBtn = document.querySelector("#dashboard button:nth-of-type(1)");
+  const clearBtn  = document.querySelector("#dashboard button:nth-of-type(2)");
+  const refreshBtn = document.querySelector("#dashboard button:nth-of-type(3)");
+
+  filterBtn.addEventListener("click", applyFilters);
+  clearBtn.addEventListener("click", resetFilters);
+  refreshBtn.addEventListener("click", () => loadDashboard());
+});
 
 }); // END DOMContentLoaded
 </script>
