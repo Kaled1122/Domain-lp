@@ -31,7 +31,6 @@ client = OpenAI(api_key=OPENAI_KEY)
 # Optional DB connection pool
 pool = SimpleConnectionPool(1, 10, dsn=DB_URL) if DB_URL else None
 
-
 # ------------------------------------------------------------
 # HELPERS
 # ------------------------------------------------------------
@@ -42,7 +41,8 @@ def get_conn():
     return pool.getconn()
 
 def put_conn(c):
-    if pool:
+    """Return connection to pool."""
+    if pool and c:
         pool.putconn(c)
 
 def extract_text_from_pdf(file):
@@ -55,6 +55,14 @@ def extract_text_from_pdf(file):
         logging.error(f"PDF extraction failed: {e}")
         return "PDF uploaded (text extraction failed)."
 
+def safe_float(v):
+    """Convert to float safely (returns 0.0 if blank or invalid)."""
+    try:
+        if v in [None, "", " "]:
+            return 0.0
+        return float(v)
+    except Exception:
+        return 0.0
 
 # ------------------------------------------------------------
 # LESSON PLAN GENERATOR
@@ -77,12 +85,10 @@ Requirements:
 <b>CEFR Level:</b> {cefr}<br>
 <b>Learner Profile:</b> {profile}<br>
 
-
 <h3>1. Lesson Objectives</h3>
 <ul>
 <li>At least 3 measurable objectives aligned with CEFR outcomes.</li>
 </ul>
-
 
 <h3>2. Lesson Plan Structure</h3>
 <table cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%">
@@ -120,28 +126,16 @@ Lesson content reference:
 {content}
 
 <h4 style="color:#2563eb">Understanding (U)</h4>
-<ul>
-<li>...</li>
-<li>...</li>
-</ul>
+<ul><li>...</li><li>...</li></ul>
 
 <h4 style="color:#16a34a">Application (A)</h4>
-<ul>
-<li>...</li>
-<li>...</li>
-</ul>
+<ul><li>...</li><li>...</li></ul>
 
 <h4 style="color:#f59e0b">Communication (C)</h4>
-<ul>
-<li>...</li>
-<li>...</li>
-</ul>
+<ul><li>...</li><li>...</li></ul>
 
 <h4 style="color:#dc2626">Behavior (B)</h4>
-<ul>
-<li>...</li>
-<li>...</li>
-</ul>
+<ul><li>...</li><li>...</li></ul>
 
 <h3>5. Score Interpretation Key</h3>
 <table cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:50%">
@@ -153,10 +147,7 @@ Lesson content reference:
 </table>
 
 <h3>6. Reflection (Instructor Review)</h3>
-<ul>
-<!-- The model will generate three context-specific reflection questions below -->
-</ul>
-
+<ul><!-- The model will generate three context-specific reflection questions below --></ul>
 """
     try:
         response = client.chat.completions.create(
@@ -190,14 +181,12 @@ Lesson content reference:
         logging.error(f"AI generation failed: {e}")
         return f"<p style='color:red'>AI generation failed: {e}</p>"
 
-
 # ------------------------------------------------------------
 # ROUTES
 # ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"status": "OK", "message": "Lesson Planner Backend Active"})
-
 
 @app.post("/generate_lesson")
 def generate_lesson():
@@ -224,40 +213,9 @@ def generate_lesson():
         logging.error(f"Error in /generate_lesson: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
-@app.post("/download_pdf")
-def download_pdf():
-    try:
-        html_content = request.form.get("html", "")
-        if not html_content:
-            return jsonify({"error": "No HTML content provided"}), 400
-
-        from reportlab.lib.units import inch
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            leftMargin=0.75 * inch,
-            rightMargin=0.75 * inch,
-            topMargin=0.75 * inch,
-            bottomMargin=0.75 * inch
-        )
-        styles = getSampleStyleSheet()
-        story = [Paragraph("Lesson Plan", styles["Title"]), Spacer(1, 12)]
-        story.append(Paragraph(html_content.replace("\n", "<br/>"), styles["BodyText"]))
-        doc.build(story)
-        buffer.seek(0)
-        return send_file(
-            buffer,
-            mimetype="application/pdf",
-            as_attachment=True,
-            download_name=f"lesson_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
-        )
-    except Exception as e:
-        logging.error(f"PDF generation failed: {e}")
-        return jsonify({"error": str(e)}), 500
-
-
+# ------------------------------------------------------------
+# DATABASE ROUTES
+# ------------------------------------------------------------
 @app.route("/fetch_data", methods=["GET"])
 def fetch_data():
     try:
@@ -285,7 +243,6 @@ def fetch_data():
             );
         """)
 
-        # Build query dynamically
         query = """
             SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
             FROM performance_data WHERE 1=1
@@ -327,7 +284,6 @@ def fetch_data():
         logging.error(f"❌ Fetch data failed: {e}")
         return jsonify({"error": str(e)}), 500
 
-
 @app.post("/save_performance")
 def save_performance():
     """Saves learner performance data from the frontend table."""
@@ -363,13 +319,13 @@ def save_performance():
                 (lesson_id, learner_id, understanding, application, communication, behavior, total)
                 VALUES (%s, %s, %s, %s, %s, %s, %s);
             """, (
-                row.get("lesson_id"),
-                row.get("learner_id"),
-                row.get("understanding"),
-                row.get("application"),
-                row.get("communication"),
-                row.get("behavior"),
-                row.get("total"),
+                row.get("lesson_id") or "T1",
+                row.get("learner_id") or "Unknown",
+                safe_float(row.get("understanding")),
+                safe_float(row.get("application")),
+                safe_float(row.get("communication")),
+                safe_float(row.get("behavior")),
+                safe_float(row.get("total")),
             ))
 
         conn.commit()
@@ -380,7 +336,6 @@ def save_performance():
     except Exception as e:
         logging.error(f"❌ Save failed: {e}")
         return jsonify({"message": f"Error: {e}"})
-
 
 # ------------------------------------------------------------
 # MAIN (RAILWAY ENTRY)
