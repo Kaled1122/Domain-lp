@@ -268,7 +268,7 @@ def fetch_data():
         from_date = request.args.get("from")
         to_date = request.args.get("to")
 
-        conn = pool.getconn()
+        conn = get_conn()
         cur = conn.cursor()
 
         cur.execute("""
@@ -285,7 +285,7 @@ def fetch_data():
             );
         """)
 
-        # dynamic filters
+        # Dynamic filters
         query = """
             SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
             FROM performance_data WHERE 1=1
@@ -304,7 +304,9 @@ def fetch_data():
 
         cur.execute(query, tuple(params))
         rows = cur.fetchall()
-        pool.putconn(conn)
+        put_conn(conn)
+
+        logging.info(f"✅ Retrieved {len(rows)} records from performance_data")
 
         data = [
             {
@@ -322,9 +324,8 @@ def fetch_data():
         return jsonify(data)
 
     except Exception as e:
-        logging.error(f"Fetch data failed: {e}")
-        return jsonify([])
-
+        logging.error(f"❌ Fetch data failed: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.post("/save_performance")
@@ -339,7 +340,7 @@ def save_performance():
             logging.warning("⚠️ No database configured.")
             return jsonify({"message": "Database unavailable."})
 
-        conn = pool.getconn()
+        conn = get_conn()
         cur = conn.cursor()
 
         cur.execute("""
@@ -372,13 +373,14 @@ def save_performance():
             ))
 
         conn.commit()
-        pool.putconn(conn)
+        put_conn(conn)
         logging.info(f"✅ Saved {len(data)} records to performance_data.")
         return jsonify({"message": "Saved successfully."})
 
     except Exception as e:
-        logging.error(f"Save failed: {e}")
+        logging.error(f"❌ Save failed: {e}")
         return jsonify({"message": f"Error: {e}"})
+
 
 # ------------------------------------------------------------
 # MAIN (RAILWAY ENTRY)
