@@ -188,27 +188,82 @@ Lesson content reference:
 # ------------------------------------------------------------
 # NEW: WORD (DOCX) DOWNLOAD ENDPOINT
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+# NEW: WORD (DOCX) DOWNLOAD ENDPOINT (IMPROVED FORMATTED VERSION)
+# ------------------------------------------------------------
 @app.post("/download_lesson_docx")
 def download_lesson_docx():
-    """Converts generated HTML to a Word document (landscape)."""
+    """Converts generated HTML to a formatted Word document (landscape)."""
     try:
         html_content = request.form.get("html", "")
         if not html_content:
             return jsonify({"status": "error", "message": "No HTML received."}), 400
 
+        # ✅ Create a Word doc and set landscape layout
         doc = Document()
         section = doc.sections[0]
         section.orientation = WD_ORIENT.LANDSCAPE
-        new_width, new_height = section.page_height, section.page_width
-        section.page_width = new_width
-        section.page_height = new_height
-        doc.add_heading("Lesson Plan", level=1)
+        section.page_width, section.page_height = section.page_height, section.page_width
 
-        clean = re.sub(r"<[^>]+>", "", html_content)
-        for line in clean.splitlines():
-            if line.strip():
-                doc.add_paragraph(line.strip())
+        # ✅ Convert basic HTML formatting
+        html_content = html_content.replace("<br>", "\n").replace("</p>", "\n\n")
 
+        # Split by major blocks (headings, tables, lists, etc.)
+        html_blocks = re.split(r'(<h\d[^>]*>.*?</h\d>|<table.*?</table>|<ul>.*?</ul>)', html_content, flags=re.S | re.I)
+
+        for block in html_blocks:
+            if not block.strip():
+                continue
+
+            # ===== HEADINGS =====
+            if re.match(r"<h2", block, re.I):
+                doc.add_heading(re.sub(r"<.*?>", "", block), level=1)
+            elif re.match(r"<h3", block, re.I):
+                h = doc.add_heading(re.sub(r"<.*?>", "", block), level=2)
+                for r in h.runs:
+                    r.bold = True
+            elif re.match(r"<h4", block, re.I):
+                h = doc.add_heading(re.sub(r"<.*?>", "", block), level=3)
+                for r in h.runs:
+                    r.bold = True
+
+            # ===== TABLES =====
+            elif "<table" in block.lower():
+                rows = re.findall(r"<tr.*?>(.*?)</tr>", block, flags=re.S)
+                if rows:
+                    first_row = re.findall(r"<t[hd].*?>(.*?)</t[hd]>", rows[0], flags=re.S)
+                    table = doc.add_table(rows=1, cols=len(first_row))
+                    hdr_cells = table.rows[0].cells
+                    for i, cell in enumerate(first_row):
+                        text = re.sub(r"<.*?>", "", cell).strip()
+                        hdr_cells[i].text = text
+                        for p in hdr_cells[i].paragraphs:
+                            for r in p.runs:
+                                r.bold = True
+                    for row in rows[1:]:
+                        cols = re.findall(r"<t[hd].*?>(.*?)</t[hd]>", row, flags=re.S)
+                        if not cols:
+                            continue
+                        cells = table.add_row().cells
+                        for i, cell in enumerate(cols):
+                            text = re.sub(r"<.*?>", "", cell).strip()
+                            cells[i].text = text
+
+            # ===== BULLET LISTS =====
+            elif "<ul" in block.lower():
+                items = re.findall(r"<li.*?>(.*?)</li>", block, flags=re.S)
+                for li in items:
+                    doc.add_paragraph(re.sub(r"<.*?>", "", li), style="List Bullet")
+
+            # ===== PARAGRAPHS =====
+            else:
+                text = re.sub(r"<.*?>", "", block).strip()
+                if text:
+                    p = doc.add_paragraph(text)
+                    for r in p.runs:
+                        r.font.name = "Arial"
+
+        # ✅ Save final document
         output = BytesIO()
         doc.save(output)
         output.seek(0)
@@ -219,6 +274,7 @@ def download_lesson_docx():
             as_attachment=True,
             download_name="lesson_plan.docx"
         )
+
     except Exception as e:
         logging.error(f"❌ DOCX generation failed: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
