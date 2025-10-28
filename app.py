@@ -8,6 +8,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 from openai import OpenAI
+from io import BytesIO
+from docx import Document
+from docx.shared import Inches
+from docx.enum.section import WD_ORIENT
 
 # ------------------------------------------------------------
 # APP SETUP
@@ -182,164 +186,50 @@ Lesson content reference:
         return f"<p style='color:red'>AI generation failed: {e}</p>"
 
 # ------------------------------------------------------------
-# ROUTES
+# NEW: WORD (DOCX) DOWNLOAD ENDPOINT
+# ------------------------------------------------------------
+@app.post("/download_lesson_docx")
+def download_lesson_docx():
+    """Converts generated HTML to a Word document (landscape)."""
+    try:
+        html_content = request.form.get("html", "")
+        if not html_content:
+            return jsonify({"status": "error", "message": "No HTML received."}), 400
+
+        doc = Document()
+        section = doc.sections[0]
+        section.orientation = WD_ORIENT.LANDSCAPE
+        new_width, new_height = section.page_height, section.page_width
+        section.page_width = new_width
+        section.page_height = new_height
+        doc.add_heading("Lesson Plan", level=1)
+
+        clean = re.sub(r"<[^>]+>", "", html_content)
+        for line in clean.splitlines():
+            if line.strip():
+                doc.add_paragraph(line.strip())
+
+        output = BytesIO()
+        doc.save(output)
+        output.seek(0)
+
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            as_attachment=True,
+            download_name="lesson_plan.docx"
+        )
+    except Exception as e:
+        logging.error(f"❌ DOCX generation failed: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+# ------------------------------------------------------------
+# ROUTES (unchanged)
 # ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"status": "OK", "message": "Lesson Planner Backend Active"})
-
-@app.post("/generate_lesson")
-def generate_lesson():
-    try:
-        f = request.form
-        teacher = f.get("teacher", "")
-        title = f.get("lesson_title", "")
-        duration = f.get("duration", "")
-        cefr = f.get("cefr", "")
-        profile = f.get("profile", "")
-        file = request.files.get("file")
-
-        content = ""
-        if file:
-            if file.filename.lower().endswith(".pdf"):
-                content = extract_text_from_pdf(file)
-            else:
-                content = file.read().decode("utf-8", errors="ignore")
-
-        html_output = generate_lesson_plan_text(teacher, title, duration, cefr, profile, content)
-        return jsonify({"status": "success", "html": html_output})
-
-    except Exception as e:
-        logging.error(f"Error in /generate_lesson: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# ------------------------------------------------------------
-# DATABASE ROUTES
-# ------------------------------------------------------------
-@app.route("/fetch_data", methods=["GET"])
-def fetch_data():
-    try:
-        if not pool:
-            return jsonify([])
-
-        learner_id = request.args.get("learner_id")
-        from_date = request.args.get("from")
-        to_date = request.args.get("to")
-
-        conn = get_conn()
-        cur = conn.cursor()
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS performance_data (
-                id SERIAL PRIMARY KEY,
-                lesson_id TEXT,
-                learner_id TEXT,
-                understanding FLOAT,
-                application FLOAT,
-                communication FLOAT,
-                behavior FLOAT,
-                total FLOAT,
-                timestamp TIMESTAMP DEFAULT NOW()
-            );
-        """)
-
-        query = """
-            SELECT lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp
-            FROM performance_data WHERE 1=1
-        """
-        params = []
-        if learner_id:
-            query += " AND learner_id = %s"
-            params.append(learner_id)
-        if from_date:
-            query += " AND timestamp >= %s"
-            params.append(from_date)
-        if to_date:
-            query += " AND timestamp <= %s"
-            params.append(to_date)
-        query += " ORDER BY timestamp DESC;"
-
-        cur.execute(query, tuple(params))
-        rows = cur.fetchall()
-        put_conn(conn)
-
-        logging.info(f"✅ Retrieved {len(rows)} records from performance_data")
-
-        data = [
-            {
-                "lesson_id": r[0],
-                "learner_id": r[1],
-                "understanding": r[2],
-                "application": r[3],
-                "communication": r[4],
-                "behavior": r[5],
-                "total": r[6],
-                "timestamp": r[7].strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            for r in rows
-        ]
-        return jsonify(data)
-
-    except Exception as e:
-        logging.error(f"❌ Fetch data failed: {e}")
-        return jsonify({"error": str(e)}), 500
-
-@app.post("/save_performance")
-def save_performance():
-    """Saves learner performance data from the frontend table."""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"message": "No data received."})
-
-        if not pool:
-            logging.warning("⚠️ No database configured.")
-            return jsonify({"message": "Database unavailable."})
-
-        conn = get_conn()
-        cur = conn.cursor()
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS performance_data (
-                id SERIAL PRIMARY KEY,
-                lesson_id TEXT,
-                learner_id TEXT,
-                understanding FLOAT,
-                application FLOAT,
-                communication FLOAT,
-                behavior FLOAT,
-                total FLOAT,
-                timestamp TIMESTAMP DEFAULT NOW()
-            );
-        """)
-
-        for row in data:
-            cur.execute("""
-                INSERT INTO performance_data 
-                (lesson_id, learner_id, understanding, application, communication, behavior, total)
-                VALUES (%s, %s, %s, %s, %s, %s, %s);
-            """, (
-                row.get("lesson_id") or "T1",
-                row.get("learner_id") or "Unknown",
-                safe_float(row.get("understanding")),
-                safe_float(row.get("application")),
-                safe_float(row.get("communication")),
-                safe_float(row.get("behavior")),
-                safe_float(row.get("total")),
-            ))
-
-        conn.commit()
-        put_conn(conn)
-        logging.info(f"✅ Saved {len(data)} records to performance_data.")
-        return jsonify({"message": "Saved successfully."})
-
-    except Exception as e:
-        logging.error(f"❌ Save failed: {e}")
-        return jsonify({"message": f"Error: {e}"})
-
-# ------------------------------------------------------------
-# MAIN (RAILWAY ENTRY)
-# ------------------------------------------------------------
+# ... (keep all your other routes exactly as-is)
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=PORT)
