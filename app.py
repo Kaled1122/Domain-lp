@@ -312,6 +312,54 @@ def generate_lesson():
     except Exception as e:
         logging.error(f"❌ Error in /generate_lesson: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+# ------------------------------------------------------------
+# SAVE PERFORMANCE DATA ENDPOINT
+# ------------------------------------------------------------
+@app.post("/save_performance")
+def save_performance():
+    """Handles saving performance data from the Performance Register."""
+    try:
+        data = request.get_json(force=True)
+        if not data:
+            return jsonify({"status": "error", "message": "No data received"}), 400
+
+        # ✅ Log the data received
+        logging.info("✅ Received performance data:")
+        for row in data:
+            logging.info(row)
+
+        # ✅ If no database configured, simulate success
+        if not pool:
+            return jsonify({"status": "success", "message": "Data received (no DB connected)."}), 200
+
+        # ✅ Otherwise, save to database
+        conn = get_conn()
+        cur = conn.cursor()
+        for row in data:
+            cur.execute(
+                """
+                INSERT INTO performance_data
+                (lesson_id, learner_id, understanding, application, communication, behavior, total, timestamp)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+                """,
+                (
+                    row["lesson_id"],
+                    row["learner_id"],
+                    row["understanding"],
+                    row["application"],
+                    row["communication"],
+                    row["behavior"],
+                    row["total"],
+                ),
+            )
+        conn.commit()
+        put_conn(conn)
+
+        return jsonify({"status": "success", "message": "Performance data saved successfully."}), 200
+
+    except Exception as e:
+        logging.error(f"❌ Error saving performance data: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == "__main__":
