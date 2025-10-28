@@ -361,6 +361,85 @@ def save_performance():
         logging.error(f"❌ Error saving performance data: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# ------------------------------------------------------------
+# FETCH PERFORMANCE DATA ENDPOINT (for Dashboard)
+# ------------------------------------------------------------
+@app.get("/fetch_data")
+def fetch_data():
+    """Fetches performance data for the dashboard with optional filters."""
+    try:
+        learner_id = request.args.get("learner_id")
+        from_date = request.args.get("from")
+        to_date = request.args.get("to")
+
+        # ✅ Return mock data if DB not connected
+        if not pool:
+            sample = [
+                {
+                    "learner_id": "T001",
+                    "understanding": 22,
+                    "application": 21,
+                    "communication": 24,
+                    "behavior": 23,
+                    "total": 90,
+                    "timestamp": "2025-10-28 08:30",
+                },
+                {
+                    "learner_id": "T002",
+                    "understanding": 20,
+                    "application": 18,
+                    "communication": 19,
+                    "behavior": 21,
+                    "total": 78,
+                    "timestamp": "2025-10-27 09:10",
+                },
+            ]
+            return jsonify(sample), 200
+
+        # ✅ Otherwise, pull from database
+        conn = get_conn()
+        cur = conn.cursor()
+
+        query = """
+            SELECT learner_id, understanding, application, communication, behavior, total, timestamp
+            FROM performance_data
+            WHERE 1=1
+        """
+        params = []
+
+        if learner_id:
+            query += " AND learner_id = %s"
+            params.append(learner_id)
+        if from_date:
+            query += " AND timestamp >= %s"
+            params.append(from_date)
+        if to_date:
+            query += " AND timestamp <= %s"
+            params.append(to_date)
+
+        query += " ORDER BY timestamp DESC"
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        put_conn(conn)
+
+        results = [
+            {
+                "learner_id": r[0],
+                "understanding": r[1],
+                "application": r[2],
+                "communication": r[3],
+                "behavior": r[4],
+                "total": r[5],
+                "timestamp": r[6].strftime("%Y-%m-%d %H:%M"),
+            }
+            for r in rows
+        ]
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        logging.error(f"❌ Error fetching data: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 5000))
