@@ -226,10 +226,40 @@ def download_lesson_docx():
 # ------------------------------------------------------------
 # ROUTES (unchanged)
 # ------------------------------------------------------------
+# ------------------------------------------------------------
+# ROUTES (unchanged)
+# ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"status": "OK", "message": "Lesson Planner Backend Active"})
-# ... (keep all your other routes exactly as-is)
+
+@app.post("/generate_lesson")
+def generate_lesson():
+    """Handles lesson plan generation requests."""
+    try:
+        f = request.form
+        teacher = f.get("teacher", "")
+        title = f.get("lesson_title", "")
+        duration = f.get("duration", "")
+        cefr = f.get("cefr", "")
+        profile = f.get("profile", "")
+        file = request.files.get("file")
+
+        content = ""
+        if file:
+            if file.filename.lower().endswith(".pdf"):
+                content = extract_text_from_pdf(file)
+            else:
+                content = file.read().decode("utf-8", errors="ignore")
+
+        html_output = generate_lesson_plan_text(teacher, title, duration, cefr, profile, content)
+        return jsonify({"status": "success", "html": html_output})
+
+    except Exception as e:
+        logging.error(f"❌ Error in /generate_lesson: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 if __name__ == "__main__":
     PORT = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=PORT)
