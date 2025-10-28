@@ -131,11 +131,35 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   };
 
-  document.getElementById("downloadLesson").onclick = () => {
-    const el = document.getElementById("lessonOutput");
-    html2pdf().from(el.contentDocument.body)
-      .set({filename:"lesson.pdf",html2canvas:{scale:2}})
-      .save();
+  document.getElementById("downloadLesson").onclick = async () => {
+  const iframe = document.getElementById("lessonOutput");
+  const html = iframe.contentDocument.body.innerHTML;
+
+  const fd = new FormData();
+  fd.append("html", html);
+
+  Swal.fire({
+    title: "Preparing Word File...",
+    text: "Please wait while the document is generated.",
+    allowOutsideClick: false,
+    didOpen: () => Swal.showLoading(),
+  });
+
+  try {
+    const res = await fetch(`${backend}/download_lesson_docx`, { method: "POST", body: fd });
+    if (!res.ok) throw new Error("Failed to generate document");
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "lesson_plan.docx";
+    a.click();
+    Swal.close();
+  } catch (err) {
+    console.error(err);
+    Swal.fire("Error", "Failed to generate Word file.", "error");
+  }
   };
 
   /* ---------- REGISTER ---------- */
