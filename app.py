@@ -226,16 +226,14 @@ def download_lesson_docx():
 # ------------------------------------------------------------
 # ROUTES (unchanged)
 # ------------------------------------------------------------
-# ------------------------------------------------------------
-# ROUTES (unchanged)
-# ------------------------------------------------------------
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({"status": "OK", "message": "Lesson Planner Backend Active"})
 
+
 @app.post("/generate_lesson")
 def generate_lesson():
-    """Handles lesson plan generation requests."""
+    """Handles lesson plan generation requests from the frontend."""
     try:
         f = request.form
         teacher = f.get("teacher", "")
