@@ -116,7 +116,7 @@ window.addEventListener("DOMContentLoaded", () => {
   /* ---------- LESSON GENERATOR ---------- */
   document.getElementById("lessonForm").onsubmit = async e => {
     e.preventDefault();
-    Swal.fire({title:"Generating Lesson Plan...",html:"Generating...",allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
+    Swal.fire({title:"Generating Lesson Plan...",html:"Please wait...",allowOutsideClick:false,didOpen:()=>Swal.showLoading()});
     const fd = new FormData(e.target);
     try {
       const res = await fetch(`${backend}/generate_lesson`, { method:"POST", body:fd });
